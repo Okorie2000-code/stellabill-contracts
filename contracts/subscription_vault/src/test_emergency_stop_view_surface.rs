@@ -11,8 +11,8 @@
 //!    emergency-stop flag (confirmed by inspecting return values).
 #![cfg(test)]
 
-use crate::{Error, SubscriptionVault, SubscriptionVaultClient};
 use crate::types::PrepaidQueryRequest;
+use crate::{Error, SubscriptionVault, SubscriptionVaultClient};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
 use soroban_sdk::{Address, Env};
 
@@ -71,12 +71,7 @@ fn setup_full() -> (
     (env, client, token, admin, subscriber, merchant, sub_id)
 }
 
-fn setup_empty() -> (
-    Env,
-    SubscriptionVaultClient<'static>,
-    Address,
-    Address,
-) {
+fn setup_empty() -> (Env, SubscriptionVaultClient<'static>, Address, Address) {
     let env = Env::default();
     env.mock_all_auths();
     env.ledger().set_timestamp(T0);

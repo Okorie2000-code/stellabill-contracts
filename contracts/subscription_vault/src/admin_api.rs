@@ -168,10 +168,10 @@ pub use crate::admin::{
     remove_accepted_token, set_fee_token, set_protocol_fee, set_treasury_split,
     validate_treasury_split,
 };
-pub use crate::admin::{create_coupon, revoke_coupon};
 pub use crate::blocklist::{
     do_add_to_blocklist, do_remove_from_blocklist, get_blocklist_entry, is_blocklisted,
 };
+pub use crate::coupon::{create_coupon, revoke_coupon};
 pub use crate::governance::{
     add_guardian, do_cancel_proposal, do_execute_proposal, do_submit_proposal, do_vote_proposal,
     get_current_proposal_id, get_guardian_weight, get_proposal, list_guardians, remove_guardian,

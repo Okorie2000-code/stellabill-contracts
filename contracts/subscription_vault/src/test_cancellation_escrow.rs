@@ -1,13 +1,12 @@
 use crate::{
     test_utils::{fixtures, setup::TestEnv},
     types::CANCELLATION_ESCROW_WINDOW_SECS,
-    CancellationEscrow, CancellationEscrowDisputedEvent, CancellationEscrowOpenedEvent,
-    CancellationEscrowReleasedEvent,
-    DataKey, DisputeStatus, Error, SubscriptionStatus,
+    CancellationEscrowDisputedEvent, CancellationEscrowOpenedEvent,
+    CancellationEscrowReleasedEvent, DisputeStatus, Error, SubscriptionStatus,
 };
 use soroban_sdk::{
-    testutils::{Address as _, Events, Ledger as _},
-    Address, Env, FromVal, IntoVal, Symbol,
+    testutils::{Address as _, Events},
+    Address, FromVal, IntoVal, Symbol,
 };
 
 const AMOUNT: i128 = 10_000_000;
@@ -22,9 +21,7 @@ fn setup_cancelled_with_balance() -> (TestEnv, u32, Address, Address) {
     test_env
         .client
         .deposit_funds(&id, &subscriber, &PREPAID, &None::<soroban_sdk::BytesN<32>>);
-    test_env
-        .client
-        .cancel_subscription(&id, &subscriber);
+    test_env.client.cancel_subscription(&id, &subscriber);
     (test_env, id, subscriber, merchant)
 }
 
@@ -97,9 +94,7 @@ fn test_claim_after_window_elapsed_succeeds() {
     let token_client = soroban_sdk::token::Client::new(&test_env.env, &test_env.token);
     assert_eq!(token_client.balance(&subscriber), PREPAID);
 
-    let result = test_env
-        .client
-        .try_get_cancellation_escrow(&id);
+    let result = test_env.client.try_get_cancellation_escrow(&id);
     assert_eq!(result, Err(Ok(Error::EscrowNotFound)));
 }
 
@@ -142,9 +137,7 @@ fn test_claim_nonexistent_escrow_rejected() {
     let (id, subscriber, _) =
         fixtures::create_subscription(&test_env.env, &test_env.client, SubscriptionStatus::Active);
 
-    test_env
-        .client
-        .cancel_subscription(&id, &subscriber);
+    test_env.client.cancel_subscription(&id, &subscriber);
 
     let result = test_env
         .client
@@ -164,9 +157,7 @@ fn test_merchant_lodge_dispute_before_window_succeeds() {
     assert_eq!(dispute.amount, PREPAID);
     assert_eq!(dispute.status, DisputeStatus::Open);
 
-    let result = test_env
-        .client
-        .try_get_cancellation_escrow(&id);
+    let result = test_env.client.try_get_cancellation_escrow(&id);
     assert_eq!(result, Err(Ok(Error::EscrowNotFound)));
 }
 
@@ -176,9 +167,7 @@ fn test_merchant_cannot_lodge_dispute_after_window() {
 
     test_env.jump(CANCELLATION_ESCROW_WINDOW_SECS + 1);
 
-    let result = test_env
-        .client
-        .try_lodge_escrow_dispute(&merchant, &id);
+    let result = test_env.client.try_lodge_escrow_dispute(&merchant, &id);
     assert_eq!(result, Err(Ok(Error::EscrowNotReleased)));
 }
 
@@ -187,9 +176,7 @@ fn test_cannot_lodge_dispute_unauthorized() {
     let (test_env, id, _subscriber, _merchant) = setup_cancelled_with_balance();
     let stranger = Address::generate(&test_env.env);
 
-    let result = test_env
-        .client
-        .try_lodge_escrow_dispute(&stranger, &id);
+    let result = test_env.client.try_lodge_escrow_dispute(&stranger, &id);
     assert_eq!(result, Err(Ok(Error::Unauthorized)));
 }
 
@@ -212,9 +199,7 @@ fn test_cannot_lodge_dispute_twice() {
 
     test_env.client.lodge_escrow_dispute(&merchant, &id);
 
-    let result = test_env
-        .client
-        .try_lodge_escrow_dispute(&merchant, &id);
+    let result = test_env.client.try_lodge_escrow_dispute(&merchant, &id);
     assert_eq!(result, Err(Ok(Error::DisputeAlreadyOpen)));
 }
 
@@ -247,8 +232,7 @@ fn test_lodge_dispute_events() {
                 == Symbol::new(&test_env.env, "dispute_opened")
         })
         .expect("missing dispute_opened event");
-    let dispute_data: crate::DisputeOpenedEvent =
-        dispute_event.2.clone().into_val(&test_env.env);
+    let dispute_data: crate::DisputeOpenedEvent = dispute_event.2.clone().into_val(&test_env.env);
     assert_eq!(dispute_data.subscription_id, id);
     assert_eq!(dispute_data.subscriber, subscriber);
     assert_eq!(dispute_data.merchant, merchant);
@@ -262,14 +246,10 @@ fn test_lodge_dispute_then_resolve_to_merchant() {
 
     let dispute_id = test_env.client.lodge_escrow_dispute(&merchant, &id);
 
-    test_env.client.respond_dispute(
-        &admin,
-        &dispute_id,
-        &None::<soroban_sdk::BytesN<32>>,
-    );
     test_env
         .client
-        .resolve_dispute(&admin, &dispute_id, &false);
+        .respond_dispute(&admin, &dispute_id, &None::<soroban_sdk::BytesN<32>>);
+    test_env.client.resolve_dispute(&admin, &dispute_id, &false);
 
     let dispute = test_env.client.get_dispute(&dispute_id);
     assert_eq!(dispute.status, DisputeStatus::ResolvedToMerchant);
@@ -287,14 +267,10 @@ fn test_lodge_dispute_then_resolve_to_subscriber() {
 
     let dispute_id = test_env.client.lodge_escrow_dispute(&merchant, &id);
 
-    test_env.client.respond_dispute(
-        &admin,
-        &dispute_id,
-        &None::<soroban_sdk::BytesN<32>>,
-    );
     test_env
         .client
-        .resolve_dispute(&admin, &dispute_id, &true);
+        .respond_dispute(&admin, &dispute_id, &None::<soroban_sdk::BytesN<32>>);
+    test_env.client.resolve_dispute(&admin, &dispute_id, &true);
 
     let dispute = test_env.client.get_dispute(&dispute_id);
     assert_eq!(dispute.status, DisputeStatus::ResolvedToSubscriber);
@@ -309,13 +285,9 @@ fn test_no_escrow_when_zero_balance() {
     let (id, subscriber, _) =
         fixtures::create_subscription(&test_env.env, &test_env.client, SubscriptionStatus::Active);
 
-    test_env
-        .client
-        .cancel_subscription(&id, &subscriber);
+    test_env.client.cancel_subscription(&id, &subscriber);
 
-    let result = test_env
-        .client
-        .try_get_cancellation_escrow(&id);
+    let result = test_env.client.try_get_cancellation_escrow(&id);
     assert_eq!(result, Err(Ok(Error::EscrowNotFound)));
 }
 
@@ -329,9 +301,7 @@ fn test_merchant_cancel_also_creates_escrow() {
         .client
         .deposit_funds(&id, &subscriber, &PREPAID, &None::<soroban_sdk::BytesN<32>>);
 
-    test_env
-        .client
-        .cancel_subscription(&id, &merchant);
+    test_env.client.cancel_subscription(&id, &merchant);
 
     let escrow = test_env.client.get_cancellation_escrow(&id);
     assert_eq!(escrow.amount, PREPAID);
@@ -383,8 +353,6 @@ fn test_lodge_dispute_exactly_at_window_edge_rejected() {
 
     test_env.jump(CANCELLATION_ESCROW_WINDOW_SECS);
 
-    let result = test_env
-        .client
-        .try_lodge_escrow_dispute(&merchant, &id);
+    let result = test_env.client.try_lodge_escrow_dispute(&merchant, &id);
     assert_eq!(result, Err(Ok(Error::EscrowNotReleased)));
 }

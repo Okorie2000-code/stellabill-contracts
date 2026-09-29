@@ -36,7 +36,7 @@
 
 use crate::types::{
     Coupon, CouponAppliedEvent, CouponCreatedEvent, CouponRevokedEvent, DataKey,
-    DiscountAppliedEvent, Error, SUB_TTL_EXTEND_TO, SUB_TTL_THRESHOLD, EVENT_SCHEMA_VERSION,
+    DiscountAppliedEvent, Error, EVENT_SCHEMA_VERSION, SUB_TTL_EXTEND_TO, SUB_TTL_THRESHOLD,
 };
 use soroban_sdk::{Address, Env, Symbol};
 
@@ -226,12 +226,7 @@ pub fn apply_coupon(
     // Bind coupon to subscription.
     let sub_key = DataKey::SubCoupon(subscription_id);
     env.storage().persistent().set(&sub_key, &code);
-    crate::subscription::maybe_extend_ttl(
-        env,
-        &sub_key,
-        SUB_TTL_THRESHOLD,
-        SUB_TTL_EXTEND_TO,
-    );
+    crate::subscription::maybe_extend_ttl(env, &sub_key, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
 
     // Increment global redemption counter.
     increment_redemptions(env, &code);

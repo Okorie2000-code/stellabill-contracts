@@ -6,7 +6,7 @@
 
 use crate::statements::{compact_subscription_statements, get_compacted_aggregate};
 use crate::types::BillingChargeKind;
-use crate::{SubscriptionVault, SubscriptionVaultClient};
+use crate::SubscriptionVault;
 use soroban_sdk::{testutils::Address as _, Address, Env};
 
 fn setup() -> (Env, Address) {
@@ -17,7 +17,12 @@ fn setup() -> (Env, Address) {
 
 /// Appends `count` statements (amounts 100, 200, 300, ...) for `subscription_id`,
 /// alternating charge kinds so the per-kind aggregate breakdown is exercised too.
-fn append_known_sequence(env: &Env, contract_id: &Address, subscription_id: u32, count: u32) -> i128 {
+fn append_known_sequence(
+    env: &Env,
+    contract_id: &Address,
+    subscription_id: u32,
+    count: u32,
+) -> i128 {
     let mut total = 0i128;
     env.as_contract(contract_id, || {
         let merchant = Address::generate(env);
@@ -72,7 +77,8 @@ fn compaction_preserves_totals_keep_recent_five() {
     // Aggregate's total plus what's still retrievable via the paginated
     // (non-pruned) list must reconstruct the original grand total exactly.
     let page = env.as_contract(&contract_id, || {
-        crate::statements::get_statements_by_subscription_offset(&env, sub_id, 0, 100, false).unwrap()
+        crate::statements::get_statements_by_subscription_offset(&env, sub_id, 0, 100, false)
+            .unwrap()
     });
     assert_eq!(page.statements.len(), 5);
     let retained_from_page: i128 = page.statements.iter().map(|s| s.amount).sum();
@@ -110,8 +116,14 @@ fn repeated_compaction_accumulates_the_aggregate() {
     assert_eq!(second.pruned_count, 7);
 
     let aggregate = env.as_contract(&contract_id, || get_compacted_aggregate(&env, sub_id));
-    assert_eq!(aggregate.pruned_count, first.pruned_count + second.pruned_count);
-    assert_eq!(aggregate.total_amount, first.total_pruned_amount + second.total_pruned_amount);
+    assert_eq!(
+        aggregate.pruned_count,
+        first.pruned_count + second.pruned_count
+    );
+    assert_eq!(
+        aggregate.total_amount,
+        first.total_pruned_amount + second.total_pruned_amount
+    );
 
     let _ = more_total;
 }
@@ -150,7 +162,8 @@ fn keep_recent_zero_prunes_everything() {
     assert_eq!(summary.total_pruned_amount, appended_total);
 
     let page = env.as_contract(&contract_id, || {
-        crate::statements::get_statements_by_subscription_offset(&env, sub_id, 0, 100, false).unwrap()
+        crate::statements::get_statements_by_subscription_offset(&env, sub_id, 0, 100, false)
+            .unwrap()
     });
     assert_eq!(page.statements.len(), 0);
     assert_eq!(page.total, 0);

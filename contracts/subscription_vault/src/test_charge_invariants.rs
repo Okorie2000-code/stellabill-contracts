@@ -132,9 +132,21 @@ impl MerchantEarningsModel {
 
 #[derive(Debug, Clone)]
 enum AccountingOp {
-    Charge { merchant: u8, token: u8, amount: i128 },
-    Withdrawal { merchant: u8, token: u8, amount: i128 },
-    Cancellation { merchant: u8, token: u8, amount: i128 },
+    Charge {
+        merchant: u8,
+        token: u8,
+        amount: i128,
+    },
+    Withdrawal {
+        merchant: u8,
+        token: u8,
+        amount: i128,
+    },
+    Cancellation {
+        merchant: u8,
+        token: u8,
+        amount: i128,
+    },
 }
 
 fn arb_accounting_op() -> impl Strategy<Value = AccountingOp> {
@@ -182,8 +194,12 @@ impl AccountingModel {
                     .entry((*merchant, *token))
                     .or_insert_with(MerchantEarningsModel::new);
                 entry.accruals = entry.accruals.saturating_add(*amount);
-                *self.total_accounted.entry(*token).or_insert(0) =
-                    self.total_accounted.get(token).copied().unwrap_or(0).saturating_add(*amount);
+                *self.total_accounted.entry(*token).or_insert(0) = self
+                    .total_accounted
+                    .get(token)
+                    .copied()
+                    .unwrap_or(0)
+                    .saturating_add(*amount);
             }
             AccountingOp::Withdrawal {
                 merchant,
@@ -196,8 +212,12 @@ impl AccountingModel {
                     .or_insert_with(MerchantEarningsModel::new);
                 if entry.balance() >= *amount {
                     entry.withdrawals = entry.withdrawals.saturating_add(*amount);
-                    *self.total_accounted.entry(*token).or_insert(0) =
-                        self.total_accounted.get(token).copied().unwrap_or(0).saturating_sub(*amount);
+                    *self.total_accounted.entry(*token).or_insert(0) = self
+                        .total_accounted
+                        .get(token)
+                        .copied()
+                        .unwrap_or(0)
+                        .saturating_sub(*amount);
                 }
             }
             AccountingOp::Cancellation {
@@ -211,8 +231,12 @@ impl AccountingModel {
                     .or_insert_with(MerchantEarningsModel::new);
                 if entry.balance() >= *amount {
                     entry.refunds = entry.refunds.saturating_add(*amount);
-                    *self.total_accounted.entry(*token).or_insert(0) =
-                        self.total_accounted.get(token).copied().unwrap_or(0).saturating_sub(*amount);
+                    *self.total_accounted.entry(*token).or_insert(0) = self
+                        .total_accounted
+                        .get(token)
+                        .copied()
+                        .unwrap_or(0)
+                        .saturating_sub(*amount);
                 }
             }
         }

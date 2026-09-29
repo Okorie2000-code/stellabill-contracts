@@ -27,8 +27,8 @@ use crate::merchant;
 use crate::queries;
 use crate::types::{
     CancellationEscrow, CancellationEscrowDisputedEvent, CancellationEscrowReleasedEvent, DataKey,
-    Dispute, DisputeEscrowLedger, DisputeOpenedEvent, DisputeResolvedEvent,
-    DisputeRespondedEvent, DisputeStatus, Error, DISPUTE_WINDOW_SECS,
+    Dispute, DisputeEscrowLedger, DisputeOpenedEvent, DisputeResolvedEvent, DisputeRespondedEvent,
+    DisputeStatus, Error, DISPUTE_WINDOW_SECS,
 };
 use soroban_sdk::{token, Address, BytesN, Env, Symbol};
 
@@ -397,7 +397,10 @@ pub fn do_claim_cancellation_escrow(
     crate::accounting::sub_total_accounted(env, &escrow.token, escrow.amount)?;
 
     env.events().publish(
-        (Symbol::new(env, "cancellation_escrow_released"), subscription_id),
+        (
+            Symbol::new(env, "cancellation_escrow_released"),
+            subscription_id,
+        ),
         CancellationEscrowReleasedEvent {
             subscription_id,
             subscriber: escrow.subscriber.clone(),
@@ -499,7 +502,10 @@ pub fn do_lodge_escrow_dispute(
 
     // Emit cancellation-escrow-disputed event.
     env.events().publish(
-        (Symbol::new(env, "cancellation_escrow_disputed"), subscription_id),
+        (
+            Symbol::new(env, "cancellation_escrow_disputed"),
+            subscription_id,
+        ),
         CancellationEscrowDisputedEvent {
             subscription_id,
             merchant: escrow.merchant.clone(),

@@ -18,14 +18,9 @@ use crate::statements::{
     get_retention_config, get_statements_by_subscription_cursor,
     get_statements_by_subscription_offset, set_retention_config,
 };
-use crate::types::{
-    BillingChargeKind, BillingStatement, DataKey, Error,
-};
+use crate::types::{BillingChargeKind, BillingStatement, DataKey, Error};
 use crate::SubscriptionVault;
-use soroban_sdk::{
-    testutils::Address as _,
-    Address, Env,
-};
+use soroban_sdk::{testutils::Address as _, Address, Env};
 
 fn setup_env() -> (Env, Address) {
     let env = Env::default();
@@ -142,7 +137,8 @@ fn test_cursor_and_offset_queries_agree() {
 
         // Test newest-first
         let offset_page = get_statements_by_subscription_offset(&env, sub_id, 2, 3, true).unwrap();
-        let cursor_page = get_statements_by_subscription_cursor(&env, sub_id, Some(2), 3, true).unwrap();
+        let cursor_page =
+            get_statements_by_subscription_cursor(&env, sub_id, Some(2), 3, true).unwrap();
 
         assert_eq!(offset_page.statements.len(), 3);
         assert_eq!(cursor_page.statements.len(), 3);
@@ -150,12 +146,17 @@ fn test_cursor_and_offset_queries_agree() {
         assert_eq!(offset_page.total, cursor_page.total);
 
         for i in 0..3 {
-            assert_eq!(offset_page.statements.get(i).unwrap(), cursor_page.statements.get(i).unwrap());
+            assert_eq!(
+                offset_page.statements.get(i).unwrap(),
+                cursor_page.statements.get(i).unwrap()
+            );
         }
 
         // Test oldest-first
-        let offset_oldest = get_statements_by_subscription_offset(&env, sub_id, 0, 4, false).unwrap();
-        let cursor_oldest = get_statements_by_subscription_cursor(&env, sub_id, None, 4, false).unwrap();
+        let offset_oldest =
+            get_statements_by_subscription_offset(&env, sub_id, 0, 4, false).unwrap();
+        let cursor_oldest =
+            get_statements_by_subscription_cursor(&env, sub_id, None, 4, false).unwrap();
 
         assert_eq!(offset_oldest.statements.len(), 4);
         assert_eq!(cursor_oldest.statements.len(), 4);
@@ -163,7 +164,10 @@ fn test_cursor_and_offset_queries_agree() {
         assert_eq!(cursor_oldest.next_cursor, Some(4));
 
         for i in 0..4 {
-            assert_eq!(offset_oldest.statements.get(i).unwrap(), cursor_oldest.statements.get(i).unwrap());
+            assert_eq!(
+                offset_oldest.statements.get(i).unwrap(),
+                cursor_oldest.statements.get(i).unwrap()
+            );
         }
     });
 }
@@ -217,9 +221,36 @@ fn test_multi_subscription_isolation() {
     let merchant = Address::generate(&env);
 
     env.as_contract(&contract_id, || {
-        append_statement(&env, sub_a, 500, merchant.clone(), BillingChargeKind::Interval, 0, 100).unwrap();
-        append_statement(&env, sub_b, 700, merchant.clone(), BillingChargeKind::Usage, 0, 100).unwrap();
-        append_statement(&env, sub_a, 600, merchant.clone(), BillingChargeKind::OneOff, 100, 200).unwrap();
+        append_statement(
+            &env,
+            sub_a,
+            500,
+            merchant.clone(),
+            BillingChargeKind::Interval,
+            0,
+            100,
+        )
+        .unwrap();
+        append_statement(
+            &env,
+            sub_b,
+            700,
+            merchant.clone(),
+            BillingChargeKind::Usage,
+            0,
+            100,
+        )
+        .unwrap();
+        append_statement(
+            &env,
+            sub_a,
+            600,
+            merchant.clone(),
+            BillingChargeKind::OneOff,
+            100,
+            200,
+        )
+        .unwrap();
 
         let page_a = get_statements_by_subscription_offset(&env, sub_a, 0, 10, false).unwrap();
         let page_b = get_statements_by_subscription_offset(&env, sub_b, 0, 10, false).unwrap();
@@ -234,8 +265,10 @@ fn test_multi_subscription_isolation() {
         // Compacting sub_a should not affect sub_b
         compact_subscription_statements(&env, sub_a, Some(1)).unwrap();
 
-        let page_a_after = get_statements_by_subscription_offset(&env, sub_a, 0, 10, false).unwrap();
-        let page_b_after = get_statements_by_subscription_offset(&env, sub_b, 0, 10, false).unwrap();
+        let page_a_after =
+            get_statements_by_subscription_offset(&env, sub_a, 0, 10, false).unwrap();
+        let page_b_after =
+            get_statements_by_subscription_offset(&env, sub_b, 0, 10, false).unwrap();
 
         assert_eq!(page_a_after.total, 1);
         assert_eq!(page_a_after.statements.get(0).unwrap().amount, 600);

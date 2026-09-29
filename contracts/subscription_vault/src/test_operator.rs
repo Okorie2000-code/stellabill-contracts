@@ -28,10 +28,15 @@ fn make_funded_subscription(te: &TestEnv, subscriber: &Address, merchant: &Addre
         &None,
         &None::<u64>,
         &None::<u32>,
-            &None::<soroban_sdk::Symbol>,
-);
+        &None::<soroban_sdk::Symbol>,
+    );
     te.stellar_token_client().mint(subscriber, &DEPOSIT);
-    te.client.deposit_funds(&sub_id, subscriber, &DEPOSIT, &None::<soroban_sdk::BytesN<32>>);
+    te.client.deposit_funds(
+        &sub_id,
+        subscriber,
+        &DEPOSIT,
+        &None::<soroban_sdk::BytesN<32>>,
+    );
     sub_id
 }
 
@@ -62,9 +67,9 @@ fn set_operator_replaces_previous_operator() {
     let op2 = Address::generate(&te.env);
 
     te.client.set_operator(&te.admin, &op1);
-    te.env.ledger().with_mut(|li| {
-        li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS
-    });
+    te.env
+        .ledger()
+        .with_mut(|li| li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS);
     te.client.set_operator(&te.admin, &op2);
 
     assert_eq!(te.client.get_operator(), Some(op2));
@@ -77,7 +82,10 @@ fn set_operator_non_admin_rejected() {
     let operator = Address::generate(&te.env);
 
     let result = te.client.try_set_operator(&stranger, &operator);
-    assert!(result.is_err(), "non-admin should not be able to set operator");
+    assert!(
+        result.is_err(),
+        "non-admin should not be able to set operator"
+    );
 }
 
 #[test]
@@ -89,7 +97,10 @@ fn set_operator_stale_admin_after_rotation_rejected() {
     te.client.rotate_admin(&te.admin, &new_admin, &0u64);
 
     let result = te.client.try_set_operator(&te.admin, &operator);
-    assert!(result.is_err(), "old admin should not be able to set operator after rotation");
+    assert!(
+        result.is_err(),
+        "old admin should not be able to set operator after rotation"
+    );
 }
 
 #[test]
@@ -113,9 +124,9 @@ fn remove_operator_clears_address_and_emits_event() {
 
     te.env.ledger().with_mut(|li| li.timestamp = 2_000);
     te.client.set_operator(&te.admin, &operator);
-    te.env.ledger().with_mut(|li| {
-        li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS
-    });
+    te.env
+        .ledger()
+        .with_mut(|li| li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS);
     te.client.remove_operator(&te.admin);
 
     let events = te.env.events().all();
@@ -144,7 +155,10 @@ fn remove_operator_non_admin_rejected() {
     te.client.set_operator(&te.admin, &operator);
 
     let result = te.client.try_remove_operator(&stranger);
-    assert!(result.is_err(), "non-admin should not be able to remove operator");
+    assert!(
+        result.is_err(),
+        "non-admin should not be able to remove operator"
+    );
 
     // Operator should still be set.
     assert_eq!(te.client.get_operator(), Some(operator));
@@ -186,7 +200,8 @@ fn operator_batch_charge_advances_nonce() {
     te.client.set_operator(&te.admin, &operator);
 
     te.jump(INTERVAL + 1);
-    te.client.operator_batch_charge(&operator, &vec![&te.env, sub_id], &0u64);
+    te.client
+        .operator_batch_charge(&operator, &vec![&te.env, sub_id], &0u64);
 
     assert_eq!(te.client.get_operator_nonce(&operator), 1u64);
 }
@@ -224,7 +239,8 @@ fn operator_batch_charge_replay_rejected() {
     te.client.set_operator(&te.admin, &operator);
 
     te.jump(INTERVAL + 1);
-    te.client.operator_batch_charge(&operator, &vec![&te.env, sub_id], &0u64);
+    te.client
+        .operator_batch_charge(&operator, &vec![&te.env, sub_id], &0u64);
 
     // Replay the exact same call — nonce 0 is already consumed.
     te.jump(INTERVAL + 1);
@@ -275,7 +291,10 @@ fn operator_batch_charge_without_operator_set_rejected() {
     let result = te
         .client
         .try_operator_batch_charge(&stranger, &vec![&te.env, sub_id], &0u64);
-    assert!(result.is_err(), "batch charge without operator set should fail");
+    assert!(
+        result.is_err(),
+        "batch charge without operator set should fail"
+    );
 }
 
 #[test]
@@ -290,9 +309,9 @@ fn operator_batch_charge_wrong_operator_rejected() {
     te.client.set_operator(&te.admin, &operator);
 
     te.jump(INTERVAL + 1);
-    let result = te
-        .client
-        .try_operator_batch_charge(&wrong_operator, &vec![&te.env, sub_id], &0u64);
+    let result =
+        te.client
+            .try_operator_batch_charge(&wrong_operator, &vec![&te.env, sub_id], &0u64);
     assert!(result.is_err(), "wrong operator address should fail");
 }
 
@@ -334,7 +353,8 @@ fn operator_nonce_is_independent_per_operator() {
     te.client.set_operator(&te.admin, &operator);
 
     te.jump(INTERVAL + 1);
-    te.client.operator_batch_charge(&operator, &vec![&te.env, sub_id], &0u64);
+    te.client
+        .operator_batch_charge(&operator, &vec![&te.env, sub_id], &0u64);
 
     assert_eq!(te.client.get_operator_nonce(&operator), 1u64);
     assert_eq!(te.client.get_operator_nonce(&other_operator), 0u64);
@@ -374,7 +394,9 @@ fn operator_charge_subscription_wrong_operator_rejected() {
     te.client.set_operator(&te.admin, &operator);
 
     te.jump(INTERVAL + 1);
-    let result = te.client.try_operator_charge_subscription(&stranger, &sub_id);
+    let result = te
+        .client
+        .try_operator_charge_subscription(&stranger, &sub_id);
     assert!(result.is_err());
 }
 
@@ -397,10 +419,15 @@ fn operator_charge_usage_succeeds() {
         &None,
         &None::<u64>,
         &None::<u32>,
-            &None::<soroban_sdk::Symbol>,
-);
+        &None::<soroban_sdk::Symbol>,
+    );
     te.stellar_token_client().mint(&subscriber, &DEPOSIT);
-    te.client.deposit_funds(&sub_id, &subscriber, &DEPOSIT, &None::<soroban_sdk::BytesN<32>>);
+    te.client.deposit_funds(
+        &sub_id,
+        &subscriber,
+        &DEPOSIT,
+        &None::<soroban_sdk::BytesN<32>>,
+    );
 
     te.client.set_operator(&te.admin, &operator);
 
@@ -428,14 +455,21 @@ fn operator_charge_usage_wrong_operator_rejected() {
         &None,
         &None::<u64>,
         &None::<u32>,
-            &None::<soroban_sdk::Symbol>,
-);
+        &None::<soroban_sdk::Symbol>,
+    );
     te.stellar_token_client().mint(&subscriber, &DEPOSIT);
-    te.client.deposit_funds(&sub_id, &subscriber, &DEPOSIT, &None::<soroban_sdk::BytesN<32>>);
+    te.client.deposit_funds(
+        &sub_id,
+        &subscriber,
+        &DEPOSIT,
+        &None::<soroban_sdk::BytesN<32>>,
+    );
 
     te.client.set_operator(&te.admin, &operator);
 
-    let result = te.client.try_operator_charge_usage(&stranger, &sub_id, &1_000_000i128);
+    let result = te
+        .client
+        .try_operator_charge_usage(&stranger, &sub_id, &1_000_000i128);
     assert!(result.is_err());
 }
 
@@ -450,9 +484,9 @@ fn remove_operator_revokes_batch_charge_immediately() {
 
     let sub_id = make_funded_subscription(&te, &subscriber, &merchant);
     te.client.set_operator(&te.admin, &operator);
-    te.env.ledger().with_mut(|li| {
-        li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS
-    });
+    te.env
+        .ledger()
+        .with_mut(|li| li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS);
     te.client.remove_operator(&te.admin);
 
     te.jump(INTERVAL + 1);
@@ -474,13 +508,15 @@ fn remove_operator_revokes_single_charge_immediately() {
 
     let sub_id = make_funded_subscription(&te, &subscriber, &merchant);
     te.client.set_operator(&te.admin, &operator);
-    te.env.ledger().with_mut(|li| {
-        li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS
-    });
+    te.env
+        .ledger()
+        .with_mut(|li| li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS);
     te.client.remove_operator(&te.admin);
 
     te.jump(INTERVAL + 1);
-    let result = te.client.try_operator_charge_subscription(&operator, &sub_id);
+    let result = te
+        .client
+        .try_operator_charge_subscription(&operator, &sub_id);
     assert!(result.is_err());
 }
 
@@ -493,7 +529,10 @@ fn operator_cannot_set_min_topup() {
     te.client.set_operator(&te.admin, &operator);
 
     let result = te.client.try_set_min_topup(&operator, &5_000_000);
-    assert!(result.is_err(), "operator must not be able to set_min_topup");
+    assert!(
+        result.is_err(),
+        "operator must not be able to set_min_topup"
+    );
 }
 
 #[test]
@@ -514,7 +553,10 @@ fn operator_cannot_enable_emergency_stop() {
     te.client.set_operator(&te.admin, &operator);
 
     let result = te.client.try_enable_emergency_stop(&operator);
-    assert!(result.is_err(), "operator must not be able to enable_emergency_stop");
+    assert!(
+        result.is_err(),
+        "operator must not be able to enable_emergency_stop"
+    );
 }
 
 #[test]
@@ -525,7 +567,10 @@ fn operator_cannot_set_another_operator() {
     te.client.set_operator(&te.admin, &operator);
 
     let result = te.client.try_set_operator(&operator, &new_op);
-    assert!(result.is_err(), "operator must not be able to escalate to set_operator");
+    assert!(
+        result.is_err(),
+        "operator must not be able to escalate to set_operator"
+    );
 }
 
 #[test]
@@ -535,7 +580,10 @@ fn operator_cannot_remove_operator() {
     te.client.set_operator(&te.admin, &operator);
 
     let result = te.client.try_remove_operator(&operator);
-    assert!(result.is_err(), "operator must not be able to remove_operator");
+    assert!(
+        result.is_err(),
+        "operator must not be able to remove_operator"
+    );
 
     // Operator should still be set.
     assert_eq!(te.client.get_operator(), Some(operator));
@@ -548,8 +596,13 @@ fn operator_cannot_add_accepted_token() {
     let dummy_token = Address::generate(&te.env);
     te.client.set_operator(&te.admin, &operator);
 
-    let result = te.client.try_add_accepted_token(&operator, &dummy_token, &6u32);
-    assert!(result.is_err(), "operator must not be able to add_accepted_token");
+    let result = te
+        .client
+        .try_add_accepted_token(&operator, &dummy_token, &6u32);
+    assert!(
+        result.is_err(),
+        "operator must not be able to add_accepted_token"
+    );
 }
 
 #[test]
@@ -559,7 +612,10 @@ fn operator_cannot_export_contract_snapshot() {
     te.client.set_operator(&te.admin, &operator);
 
     let result = te.client.try_export_contract_snapshot(&operator);
-    assert!(result.is_err(), "operator must not be able to export_contract_snapshot");
+    assert!(
+        result.is_err(),
+        "operator must not be able to export_contract_snapshot"
+    );
 }
 
 // ── Emergency stop blocks operator charges ────────────────────────────────────
@@ -597,7 +653,9 @@ fn operator_charge_subscription_blocked_by_emergency_stop() {
     te.client.enable_emergency_stop(&te.admin);
 
     te.jump(INTERVAL + 1);
-    let result = te.client.try_operator_charge_subscription(&operator, &sub_id);
+    let result = te
+        .client
+        .try_operator_charge_subscription(&operator, &sub_id);
     assert!(result == Err(Ok(Error::EmergencyStopActive)));
 }
 
@@ -628,13 +686,13 @@ fn new_admin_can_replace_operator_after_rotation() {
     let new_op = Address::generate(&te.env);
 
     te.client.set_operator(&te.admin, &operator);
-    te.env.ledger().with_mut(|li| {
-        li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS
-    });
+    te.env
+        .ledger()
+        .with_mut(|li| li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS);
     te.client.rotate_admin(&te.admin, &new_admin, &0u64);
-    te.env.ledger().with_mut(|li| {
-        li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS
-    });
+    te.env
+        .ledger()
+        .with_mut(|li| li.timestamp += crate::admin::CONFIG_COOLDOWN_SECS);
     te.client.set_operator(&new_admin, &new_op);
 
     assert_eq!(te.client.get_operator(), Some(new_op));
@@ -651,7 +709,10 @@ fn old_admin_cannot_change_operator_after_rotation() {
     te.client.rotate_admin(&te.admin, &new_admin, &0u64);
 
     let result = te.client.try_set_operator(&te.admin, &another_op);
-    assert!(result.is_err(), "old admin should not be able to change operator after rotation");
+    assert!(
+        result.is_err(),
+        "old admin should not be able to change operator after rotation"
+    );
 }
 
 #[test]
@@ -664,7 +725,10 @@ fn old_admin_cannot_remove_operator_after_rotation() {
     te.client.rotate_admin(&te.admin, &new_admin, &0u64);
 
     let result = te.client.try_remove_operator(&te.admin);
-    assert!(result.is_err(), "old admin should not be able to remove operator after rotation");
+    assert!(
+        result.is_err(),
+        "old admin should not be able to remove operator after rotation"
+    );
 
     // Operator must still be set.
     assert_eq!(te.client.get_operator(), Some(operator));
@@ -714,11 +778,17 @@ fn get_operator_nonce_increments_per_call() {
     for expected_nonce in 0u64..3u64 {
         assert_eq!(te.client.get_operator_nonce(&operator), expected_nonce);
         te.jump(INTERVAL + 1);
-        te.client.operator_batch_charge(&operator, &vec![&te.env, sub_id], &expected_nonce);
+        te.client
+            .operator_batch_charge(&operator, &vec![&te.env, sub_id], &expected_nonce);
 
         // Re-fund so the next charge can succeed.
         te.stellar_token_client().mint(&subscriber, &AMOUNT);
-        te.client.deposit_funds(&sub_id, &subscriber, &AMOUNT, &None::<soroban_sdk::BytesN<32>>);
+        te.client.deposit_funds(
+            &sub_id,
+            &subscriber,
+            &AMOUNT,
+            &None::<soroban_sdk::BytesN<32>>,
+        );
     }
     assert_eq!(te.client.get_operator_nonce(&operator), 3u64);
 }
@@ -741,10 +811,15 @@ fn operator_charge_usage_with_reference_succeeds() {
         &None,
         &None::<u64>,
         &None::<u32>,
-            &None::<soroban_sdk::Symbol>,
-);
+        &None::<soroban_sdk::Symbol>,
+    );
     te.stellar_token_client().mint(&subscriber, &DEPOSIT);
-    te.client.deposit_funds(&sub_id, &subscriber, &DEPOSIT, &None::<soroban_sdk::BytesN<32>>);
+    te.client.deposit_funds(
+        &sub_id,
+        &subscriber,
+        &DEPOSIT,
+        &None::<soroban_sdk::BytesN<32>>,
+    );
 
     te.client.set_operator(&te.admin, &operator);
 

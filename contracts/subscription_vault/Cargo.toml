@@ -33,6 +33,8 @@ cast_sign_loss = "warn"
 [features]
 default = ["oracle-pricing"]
 oracle-pricing = []
+# Internal-only: gates invariant assertion hooks compiled out of production builds.
+invariants = []
 
 [dependencies]
 soroban-sdk = "22.0.0"

@@ -21,7 +21,13 @@ const DEPOSIT: i128 = 5_000_000; // >= init min_topup (1_000_000)
 /// Create an `Active`, fully-funded subscription and return its id.
 fn funded_sub(te: &TestEnv, subscriber: &Address, merchant: &Address) -> u32 {
     let sub_id = te.client.create_subscription(
-        subscriber, merchant, &AMOUNT, &INTERVAL, &false, &None, &None,
+        subscriber,
+        merchant,
+        &AMOUNT,
+        &INTERVAL,
+        &false,
+        &None,
+        &None,
         &None::<u32>,
         &None::<soroban_sdk::Symbol>,
     );

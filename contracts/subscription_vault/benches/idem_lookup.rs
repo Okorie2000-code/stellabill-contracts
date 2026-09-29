@@ -164,9 +164,9 @@ fn measure_replay_cost(
     let token_admin = token::StellarAssetClient::new(env, token);
     token_admin.mint(subscriber, &MIN_TOPUP);
 
-    env.budget().reset_default();
+    env.cost_estimate().budget().reset_default();
     client.deposit_funds(&sub_id, subscriber, &MIN_TOPUP, &Some(key));
-    env.budget().cpu_instruction_cost()
+    env.cost_estimate().budget().cpu_instruction_cost()
 }
 
 // â”€â”€ Benchmark tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -218,7 +218,10 @@ fn bench_ring_position_cost() {
 
     std::println!(
         "[bench_ring_position_cost] head={} mid={} tail={} absent={}",
-        cost_head, cost_mid, cost_tail, cost_absent
+        cost_head,
+        cost_mid,
+        cost_tail,
+        cost_absent
     );
 
     // â”€â”€ Step 3: assert constant-time property across hit positions.
@@ -281,17 +284,17 @@ fn bench_empty_ring() {
     let token_admin = token::StellarAssetClient::new(&env, &token);
     token_admin.mint(&subscriber, &MIN_TOPUP);
 
-    env.budget().reset_default();
+    env.cost_estimate().budget().reset_default();
     // Inserting into an empty ring: check_key returns false, push_key adds it.
     client.deposit_funds(&sub_id, &subscriber, &MIN_TOPUP, &Some(key.clone()));
-    let cost_insert = env.budget().cpu_instruction_cost();
+    let cost_insert = env.cost_estimate().budget().cpu_instruction_cost();
 
     // Replaying the same key: check_key returns true immediately.
     token_admin.mint(&subscriber, &MIN_TOPUP);
-    env.budget().reset_default();
+    env.cost_estimate().budget().reset_default();
     let bal_before = client.get_subscription(&sub_id).prepaid_balance;
     client.deposit_funds(&sub_id, &subscriber, &MIN_TOPUP, &Some(key));
-    let cost_replay = env.budget().cpu_instruction_cost();
+    let cost_replay = env.cost_estimate().budget().cpu_instruction_cost();
     let bal_after = client.get_subscription(&sub_id).prepaid_balance;
 
     std::println!(
@@ -337,9 +340,9 @@ fn bench_ring_size_one() {
     // Replay the single key.
     token_admin.mint(&subscriber, &MIN_TOPUP);
     let bal_before = client.get_subscription(&sub_id).prepaid_balance;
-    env.budget().reset_default();
+    env.cost_estimate().budget().reset_default();
     client.deposit_funds(&sub_id, &subscriber, &MIN_TOPUP, &Some(only_key));
-    let cost_replay_1 = env.budget().cpu_instruction_cost();
+    let cost_replay_1 = env.cost_estimate().budget().cpu_instruction_cost();
     let bal_after = client.get_subscription(&sub_id).prepaid_balance;
 
     std::println!("[bench_ring_size_one] replay_cost={}", cost_replay_1);
@@ -375,16 +378,16 @@ fn bench_duplicate_hash_query() {
     // First replay.
     token_admin.mint(&subscriber, &MIN_TOPUP);
     let bal_before = client.get_subscription(&sub_id).prepaid_balance;
-    env.budget().reset_default();
+    env.cost_estimate().budget().reset_default();
     client.deposit_funds(&sub_id, &subscriber, &MIN_TOPUP, &Some(dup_key.clone()));
-    let cost_first_replay = env.budget().cpu_instruction_cost();
+    let cost_first_replay = env.cost_estimate().budget().cpu_instruction_cost();
     let bal_mid = client.get_subscription(&sub_id).prepaid_balance;
 
     // Second replay (consecutive duplicate).
     token_admin.mint(&subscriber, &MIN_TOPUP);
-    env.budget().reset_default();
+    env.cost_estimate().budget().reset_default();
     client.deposit_funds(&sub_id, &subscriber, &MIN_TOPUP, &Some(dup_key));
-    let cost_second_replay = env.budget().cpu_instruction_cost();
+    let cost_second_replay = env.cost_estimate().budget().cpu_instruction_cost();
     let bal_after = client.get_subscription(&sub_id).prepaid_balance;
 
     std::println!(
@@ -394,14 +397,8 @@ fn bench_duplicate_hash_query() {
     );
 
     // Neither replay should alter the balance.
-    assert_eq!(
-        bal_before, bal_mid,
-        "First replay must not change balance."
-    );
-    assert_eq!(
-        bal_mid, bal_after,
-        "Second replay must not change balance."
-    );
+    assert_eq!(bal_before, bal_mid, "First replay must not change balance.");
+    assert_eq!(bal_mid, bal_after, "Second replay must not change balance.");
 
     // The two consecutive replays should have comparable cost (within tolerance).
     let lo = cost_first_replay.min(cost_second_replay);

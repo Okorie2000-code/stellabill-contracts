@@ -68,8 +68,7 @@ fn create_funded_sub(
 
 /// Advance ledger past one full interval so `charge_one` passes the timing guard.
 fn jump_interval(env: &Env) {
-    env.ledger()
-        .with_mut(|l| l.timestamp += INTERVAL + 1);
+    env.ledger().with_mut(|l| l.timestamp += INTERVAL + 1);
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -224,7 +223,10 @@ fn test_already_paused_not_affected() {
 
     // Manually pause (subscriber auth)
     client.pause_subscription(&id, &sub_addr);
-    assert_eq!(client.get_subscription(&id).status, SubscriptionStatus::Paused);
+    assert_eq!(
+        client.get_subscription(&id).status,
+        SubscriptionStatus::Paused
+    );
 
     // Attempt a charge on a Paused sub — must return NotActive, not crash
     jump_interval(&env);

@@ -47,12 +47,12 @@ use crate::state_machine::transition_to;
 use crate::statements::append_statement;
 use crate::subscription::{next_charge_time, write_subscription};
 use crate::types::{
-    BillingChargeKind, BillingPeriodSnapshot, ChargeExecutionResult, ChargeFailureEvent, Coupon, DataKey,
+    BillingChargeKind, BillingPeriodSnapshot, ChargeExecutionResult, ChargeFailureEvent, DataKey,
     Error, FeeConvertedEvent, GracePeriodEnteredEvent, LifetimeCapReachedEvent,
     SubscriptionAutoPausedEvent, SubscriptionCancelledEvent, SubscriptionChargeFailedEvent,
-    SubscriptionChargedEvent, SubscriptionStatus, TOPIC_CHARGED, UsageChargeRejectedEvent, UsageChargeResult,
+    SubscriptionChargedEvent, SubscriptionStatus, UsageChargeRejectedEvent, UsageChargeResult,
     UsageLimits, UsageState, UsageStatementEvent, SNAPSHOT_FLAG_CLOSED,
-    SNAPSHOT_FLAG_INTERVAL_CHARGED, SNAPSHOT_FLAG_USAGE_CHARGED,
+    SNAPSHOT_FLAG_INTERVAL_CHARGED, SNAPSHOT_FLAG_USAGE_CHARGED, TOPIC_CHARGED,
 };
 use soroban_sdk::{Address, Env, String, Symbol};
 
@@ -109,7 +109,7 @@ pub(crate) fn split_protocol_fee(
 pub(crate) fn distribute_treasury_split(
     env: &Env,
     fee_amount: i128,
-    token: &soroban_sdk::Address,
+    _token: &soroban_sdk::Address,
 ) -> soroban_sdk::Vec<(soroban_sdk::Address, i128)> {
     let mut result = soroban_sdk::Vec::new(env);
     if fee_amount <= 0 {
@@ -193,11 +193,7 @@ struct FeeConversion {
 /// - The override matches `source_token`.
 /// - The oracle is not available (not configured, or price fetch fails).
 /// - Conversion would round to zero (precision loss guard).
-fn convert_fee(
-    env: &Env,
-    source_token: &Address,
-    fee_amount: i128,
-) -> FeeConversion {
+fn convert_fee(env: &Env, source_token: &Address, fee_amount: i128) -> FeeConversion {
     let fee_token_opt = crate::admin::get_fee_token(env);
     let fee_token = match fee_token_opt {
         Some(ref t) if t != source_token => t.clone(),
@@ -246,61 +242,6 @@ fn convert_fee(
             rate: 0,
         },
     }
-}
-
-/// Resolve the coupon bound to a subscription and compute the post-discount
-/// charge amount.
-///
-/// Returns `(post_discount_amount, discount_amount, redemption_update)`.
-/// `redemption_update` is `Some(next_used_count)` when a valid coupon was
-/// applied and the redemption counter must be advanced on a successful charge.
-/// The counter is intentionally not advanced here so failed/insufficient
-/// charges do not consume a redemption.
-fn resolve_coupon_discount(
-    env: &Env,
-    subscription_id: u32,
-    now: u64,
-    token: &Address,
-    gross_amount: i128,
-    coupon_code: &Option<Symbol>,
-) -> Result<(i128, i128, Option<u32>), Error> {
-    if gross_amount <= 0 {
-        return Ok((gross_amount, 0, None));
-    }
-
-    let Some(code) = coupon_code else {
-        return Ok((gross_amount, 0, None));
-    };
-
-    let coupon: Coupon = env
-        .storage()
-        .instance()
-        .get(&DataKey::Coupon(code.clone()))
-        .ok_or(Error::CouponNotFound)?;
-
-    if coupon.token != token.clone() {
-        return Err(Error::CouponTokenMismatch);
-    }
-    if coupon.expires_at <= now {
-        return Err(Error::CouponExpired);
-    }
-
-    let used: u32 = env
-        .storage()
-        .instance()
-        .get(&DataKey::CouponRedemptions(subscription_id))
-        .unwrap_or(0);
-    if used >= coupon.max_redemptions {
-        return Err(Error::CouponRedemptionLimit);
-    }
-
-    let percent_discount =
-        gross_amount.saturating_mul(coupon.percent_off_bps as i128) / 10_000i128;
-    let raw_discount = coupon.fixed_off.saturating_add(percent_discount);
-    let discount = raw_discount.min(gross_amount).max(0);
-    let net_amount = gross_amount - discount;
-
-    Ok((net_amount, discount, Some(used.saturating_add(1))))
 }
 
 /// Performs a single interval-based charge with optional replay protection.
@@ -369,8 +310,7 @@ pub fn charge_one(
 
     // Expiration guard
     if sub.is_expired(now, env.ledger().sequence()) {
-        if sub.status != SubscriptionStatus::Expired
-            && sub.status != SubscriptionStatus::Cancelled
+        if sub.status != SubscriptionStatus::Expired && sub.status != SubscriptionStatus::Cancelled
         {
             transition_to(&mut sub.status, SubscriptionStatus::Expired)?;
             write_subscription(env, subscription_id, &sub);
@@ -405,9 +345,7 @@ pub fn charge_one(
         now,
         &sub.token,
         charge_amount,
-        &sub.coupon_code,
-    )
-    .map_err(|e| charge_fail(env, subscription_id, e, charge_amount, now))?;
+    );
 
     if let Some(cap) = sub.lifetime_cap {
         if sub.lifetime_charged >= cap {
@@ -527,7 +465,11 @@ pub fn charge_one(
     };
 
     let salt_key = DataKey::ChargeSalt(subscription_id);
-    if let Some(last_salt) = env.storage().instance().get::<_, soroban_sdk::BytesN<32>>(&salt_key) {
+    if let Some(last_salt) = env
+        .storage()
+        .instance()
+        .get::<_, soroban_sdk::BytesN<32>>(&salt_key)
+    {
         if last_salt == salt {
             return Err(charge_fail(
                 env,
@@ -675,11 +617,23 @@ pub fn charge_one(
 
             // Route merchant amount to sub-account if subscription has one
             if let Some(ref label) = sub.sub_account_label {
-                crate::merchant::credit_sub_account(env, &sub.merchant, label, &sub.token, merchant_amount)?;
+                crate::merchant::credit_sub_account(
+                    env,
+                    &sub.merchant,
+                    label,
+                    &sub.token,
+                    merchant_amount,
+                )?;
                 // Deduct from parent balance (parent earnings stay for roll-up reporting)
-                let parent_bal = crate::merchant::get_merchant_balance_by_token(env, &sub.merchant, &sub.token);
+                let parent_bal =
+                    crate::merchant::get_merchant_balance_by_token(env, &sub.merchant, &sub.token);
                 let new_parent_bal = crate::safe_math::safe_sub(parent_bal, merchant_amount)?;
-                crate::merchant::set_merchant_balance(env, &sub.merchant, &sub.token, &new_parent_bal);
+                crate::merchant::set_merchant_balance(
+                    env,
+                    &sub.merchant,
+                    &sub.token,
+                    &new_parent_bal,
+                );
             }
 
             let conversion = if fee_amount > 0 {
@@ -792,11 +746,6 @@ pub fn charge_one(
             sub.lifetime_charged = safe_add(sub.lifetime_charged, charge_amount)?;
 
             // Consume one coupon redemption only after the charge has succeeded.
-            if let Some(next_used) = coupon_redemption {
-                env.storage()
-                    .instance()
-                    .set(&DataKey::CouponRedemptions(subscription_id), &next_used);
-            }
 
             // Recover from grace period or insufficient balance on successful charge.
             // Clear the grace clock so the next charge window uses fresh timestamps.
@@ -1021,8 +970,7 @@ pub fn charge_one(
 
                 if failures >= threshold {
                     // Re-load subscription to apply the Paused transition cleanly.
-                    let mut sub2 =
-                        crate::queries::get_subscription(env, subscription_id).unwrap();
+                    let mut sub2 = crate::queries::get_subscription(env, subscription_id).unwrap();
                     if sub2.status == SubscriptionStatus::InsufficientBalance {
                         if transition_to(&mut sub2.status, SubscriptionStatus::Paused).is_ok() {
                             crate::subscription::write_subscription(env, subscription_id, &sub2);
@@ -1113,8 +1061,7 @@ pub fn charge_usage_one(
 
     // Expiration guard
     if sub.is_expired(now, env.ledger().sequence()) {
-        if sub.status != SubscriptionStatus::Expired
-            && sub.status != SubscriptionStatus::Cancelled
+        if sub.status != SubscriptionStatus::Expired && sub.status != SubscriptionStatus::Cancelled
         {
             transition_to(&mut sub.status, SubscriptionStatus::Expired)?;
             write_subscription(env, subscription_id, &sub);
@@ -1374,12 +1321,25 @@ pub fn charge_usage_one(
 
             // Route merchant amount to sub-account if subscription has one
             if let Some(ref label) = sub.sub_account_label {
-                crate::merchant::credit_sub_account(env, &sub.merchant, label, &sub.token, merchant_amount)?;
+                crate::merchant::credit_sub_account(
+                    env,
+                    &sub.merchant,
+                    label,
+                    &sub.token,
+                    merchant_amount,
+                )?;
                 // Deduct from parent balance (parent earnings stay for roll-up reporting)
-                let parent_bal = crate::merchant::get_merchant_balance_by_token(env, &sub.merchant, &sub.token);
+                let parent_bal =
+                    crate::merchant::get_merchant_balance_by_token(env, &sub.merchant, &sub.token);
                 let new_parent_bal = crate::safe_math::safe_sub(parent_bal, merchant_amount)?;
-                crate::merchant::set_merchant_balance(env, &sub.merchant, &sub.token, &new_parent_bal);
-            }            let conversion = if fee_amount > 0 {
+                crate::merchant::set_merchant_balance(
+                    env,
+                    &sub.merchant,
+                    &sub.token,
+                    &new_parent_bal,
+                );
+            }
+            let conversion = if fee_amount > 0 {
                 Some(convert_fee(env, &sub.token, fee_amount))
             } else {
                 None
@@ -1624,12 +1584,13 @@ pub(crate) fn credit_charge_payees(
     if let Some(split_payees) = crate::subscription::get_split_payees(env, subscription_id) {
         let mut total_distributed_amount = 0i128;
         let num_payees = split_payees.entries.len();
-        
+
         for i in 1..num_payees {
             if let Some(entry) = split_payees.entries.get(i) {
                 let (payee, weight) = entry;
                 let share = net_merchant_amount * weight as i128 / 10_000i128;
-                total_distributed_amount = crate::safe_math::safe_add(total_distributed_amount, share)?;
+                total_distributed_amount =
+                    crate::safe_math::safe_add(total_distributed_amount, share)?;
                 crate::merchant::credit_merchant_balance_for_token(
                     env,
                     &payee,
@@ -1639,7 +1600,7 @@ pub(crate) fn credit_charge_payees(
                 )?;
             }
         }
-        
+
         if let Some(entry) = split_payees.entries.get(0) {
             let (payee, _) = entry;
             let first_share = net_merchant_amount - total_distributed_amount;
@@ -1651,7 +1612,7 @@ pub(crate) fn credit_charge_payees(
                 charge_kind,
             )?;
         }
-        
+
         let mut payees_vec = soroban_sdk::Vec::new(env);
         for i in 0..num_payees {
             if let Some(entry) = split_payees.entries.get(i) {
@@ -1664,9 +1625,12 @@ pub(crate) fn credit_charge_payees(
                 payees_vec.push_back((payee, share));
             }
         }
-        
+
         env.events().publish(
-            (soroban_sdk::Symbol::new(env, "split_charge"), subscription_id),
+            (
+                soroban_sdk::Symbol::new(env, "split_charge"),
+                subscription_id,
+            ),
             crate::types::SplitChargeEvent {
                 subscription_id,
                 payees: payees_vec,

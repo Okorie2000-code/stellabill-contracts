@@ -60,7 +60,7 @@ fn create_subs(
             &None::<u64>,
             &None::<u32>,
             &None::<soroban_sdk::Symbol>,
-);
+        );
         ids.push(id);
     }
     ids
@@ -83,7 +83,7 @@ fn single_page_export_returns_all_ids() {
     let created = create_subs(&client, &token_admin, &subscriber, &merchant, n);
 
     let result = client.export_subscription_summaries(&admin, &0, &50);
-    assert_eq!(result.len() as u32, n);
+    assert_eq!(result.len(), n);
     let mut exported: Vec<u32> = result.iter().map(|s| s.subscription_id).collect();
     exported.sort();
     let mut created_sorted = created.clone();
@@ -168,13 +168,13 @@ fn partial_last_page() {
     let created = create_subs(&client, &token_admin, &subscriber, &merchant, n);
 
     let page1 = client.export_subscription_summaries(&admin, &0, &3);
-    assert_eq!(page1.len() as u32, 3);
+    assert_eq!(page1.len(), 3);
 
     let page2 = client.export_subscription_summaries(&admin, &3, &3);
-    assert_eq!(page2.len() as u32, 3);
+    assert_eq!(page2.len(), 3);
 
     let page3 = client.export_subscription_summaries(&admin, &6, &3);
-    assert_eq!(page3.len() as u32, 1);
+    assert_eq!(page3.len(), 1);
 
     let mut all: Vec<u32> = page1
         .iter()

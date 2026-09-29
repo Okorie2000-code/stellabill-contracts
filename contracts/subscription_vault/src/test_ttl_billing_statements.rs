@@ -117,9 +117,7 @@ fn stmt_read_succeeds(env: &Env, contract_id: &Address, sub_id: u32, seq: u32) -
             let _ = env
                 .storage()
                 .persistent()
-                .get::<_, crate::types::BillingStatement>(
-                    &DataKey::BillingStatement(sub_id, seq),
-                );
+                .get::<_, crate::types::BillingStatement>(&DataKey::BillingStatement(sub_id, seq));
         });
     }));
     std::panic::set_hook(prev);
@@ -179,9 +177,12 @@ fn read_extends_ttl_on_index_and_stmt_bodies() {
     let live_until = START_SEQ + BILLING_STATEMENT_TTL_EXTEND_TO;
     set_seq(&env, live_until);
     env.as_contract(&cid, || {
-        let page =
-            get_statements_by_subscription_offset(&env, sub_id, 0, 10, false).unwrap();
-        assert_eq!(page.statements.len(), 1, "Must return exactly one statement");
+        let page = get_statements_by_subscription_offset(&env, sub_id, 0, 10, false).unwrap();
+        assert_eq!(
+            page.statements.len(),
+            1,
+            "Must return exactly one statement"
+        );
         assert_eq!(page.statements.get(0).unwrap().amount, 1_000_000);
     });
 
@@ -278,8 +279,7 @@ fn first_append_absent_seq_key_is_noop_safe() {
 
     // The statement should now be retrievable.
     env.as_contract(&cid, || {
-        let page =
-            get_statements_by_subscription_offset(&env, sub_id, 0, 10, false).unwrap();
+        let page = get_statements_by_subscription_offset(&env, sub_id, 0, 10, false).unwrap();
         assert_eq!(page.statements.len(), 1);
         assert_eq!(page.statements.get(0).unwrap().sequence, 1);
         assert_eq!(page.statements.get(0).unwrap().amount, 42_000);
@@ -295,9 +295,12 @@ fn read_empty_subscription_returns_empty_page() {
     let sub_id = 999u32; // never written to
 
     env.as_contract(&cid, || {
-        let page =
-            get_statements_by_subscription_offset(&env, sub_id, 0, 10, false).unwrap();
-        assert_eq!(page.statements.len(), 0, "Empty subscription must return empty page");
+        let page = get_statements_by_subscription_offset(&env, sub_id, 0, 10, false).unwrap();
+        assert_eq!(
+            page.statements.len(),
+            0,
+            "Empty subscription must return empty page"
+        );
         assert_eq!(page.total, 0);
         assert!(page.next_cursor.is_none());
     });
@@ -335,8 +338,7 @@ fn multi_statement_all_bodies_get_ttl_extended() {
     set_seq(&env, live_until);
 
     env.as_contract(&cid, || {
-        let page =
-            get_statements_by_subscription_offset(&env, sub_id, 0, 10, false).unwrap();
+        let page = get_statements_by_subscription_offset(&env, sub_id, 0, 10, false).unwrap();
         assert_eq!(page.total, 5, "Must have 5 statements");
         assert_eq!(page.statements.len(), 5);
         // Sequence numbers must be 1..=5.
@@ -541,8 +543,17 @@ fn all_charge_kinds_preserved_after_ttl_extension() {
     env.as_contract(&cid, || {
         let page = get_statements_by_subscription_offset(&env, sub_id, 0, 10, false).unwrap();
         assert_eq!(page.statements.len(), 3);
-        assert_eq!(page.statements.get(0).unwrap().kind, BillingChargeKind::Interval);
-        assert_eq!(page.statements.get(1).unwrap().kind, BillingChargeKind::Usage);
-        assert_eq!(page.statements.get(2).unwrap().kind, BillingChargeKind::OneOff);
+        assert_eq!(
+            page.statements.get(0).unwrap().kind,
+            BillingChargeKind::Interval
+        );
+        assert_eq!(
+            page.statements.get(1).unwrap().kind,
+            BillingChargeKind::Usage
+        );
+        assert_eq!(
+            page.statements.get(2).unwrap().kind,
+            BillingChargeKind::OneOff
+        );
     });
 }

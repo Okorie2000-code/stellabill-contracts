@@ -1,9 +1,12 @@
 #![cfg(test)]
 
-use soroban_sdk::{testutils::{Address as _, Ledger}, Address, Env, Vec};
-use subscription_vault::{SubscriptionVault, SubscriptionVaultClient, types::SubscriptionStatus};
+use soroban_sdk::{
+    testutils::{Address as _, Ledger},
+    Address, Env, Vec,
+};
 use std::fs::OpenOptions;
 use std::io::Write;
+use subscription_vault::{SubscriptionVault, SubscriptionVaultClient};
 
 const AMOUNT: i128 = 10_000_000;
 const INTERVAL: u64 = 30 * 24 * 60 * 60;
@@ -11,7 +14,7 @@ const PREPAID: i128 = 50_000_000;
 
 fn setup_env<'a>(env: &'a Env) -> (SubscriptionVaultClient<'a>, Address, Address) {
     env.mock_all_auths();
-    env.budget().reset_unlimited();
+    env.cost_estimate().budget().reset_unlimited();
     let contract_id = env.register(SubscriptionVault, ());
     let client = SubscriptionVaultClient::new(env, &contract_id);
     let admin = Address::generate(env);
@@ -42,7 +45,7 @@ fn bench_batch_charge_scaling() {
             for i in 0..size {
                 let subscriber = Address::generate(&env);
                 let merchant = Address::generate(&env);
-                
+
                 let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
                 token_client.mint(&subscriber, &PREPAID);
 
@@ -59,17 +62,17 @@ fn bench_batch_charge_scaling() {
                 );
 
                 if scenario == "Success" || scenario == "WithPaused" {
-                    client.top_up_subscription(&subscriber, &id, &PREPAID);
+                    client.deposit_funds(&id, &subscriber, &PREPAID, &None);
                 }
 
                 if scenario == "WithPaused" && i % 2 == 0 {
-                    client.pause_subscription(&subscriber, &id);
+                    client.pause_subscription(&id, &subscriber);
                 }
 
                 if scenario == "SingleId" {
                     if i == 0 {
                         duplicate_id = id;
-                        client.top_up_subscription(&subscriber, &id, &PREPAID);
+                        client.deposit_funds(&id, &subscriber, &PREPAID, &None);
                     }
                     ids.push_back(duplicate_id);
                 } else {
@@ -78,20 +81,32 @@ fn bench_batch_charge_scaling() {
             }
 
             env.ledger().set_timestamp(INTERVAL + 1);
-            env.budget().reset_default();
+            env.cost_estimate().budget().reset_default();
 
             client.batch_charge(&ids, &0u64);
 
-            let cpu_cost = env.budget().cpu_instruction_cost();
+            let cpu_cost = env.cost_estimate().budget().cpu_instruction_cost();
             let cost_per_item = cpu_cost / (size as u64);
 
-            results_csv.push_str(&format!("{},{},{},{}\n", scenario, size, cpu_cost, cost_per_item));
+            results_csv.push_str(&format!(
+                "{},{},{},{}\n",
+                scenario, size, cpu_cost, cost_per_item
+            ));
 
             if scenario == "Success" {
                 if size == 100 {
-                    assert!(cost_per_item <= prev_cost_per_item || cost_per_item < prev_cost_per_item + (prev_cost_per_item / 10));
+                    assert!(
+                        cost_per_item <= prev_cost_per_item
+                            || cost_per_item < prev_cost_per_item + (prev_cost_per_item / 10)
+                    );
                 } else {
-                    assert!(cost_per_item < prev_cost_per_item, "Per item cost should decrease. Size: {}, Prev: {}, Current: {}", size, prev_cost_per_item, cost_per_item);
+                    assert!(
+                        cost_per_item < prev_cost_per_item,
+                        "Per item cost should decrease. Size: {}, Prev: {}, Current: {}",
+                        size,
+                        prev_cost_per_item,
+                        cost_per_item
+                    );
                 }
             }
 
@@ -105,6 +120,6 @@ fn bench_batch_charge_scaling() {
         .truncate(true)
         .open("benches/batch_charge_scaling.csv")
         .unwrap();
-    
+
     file.write_all(results_csv.as_bytes()).unwrap();
 }

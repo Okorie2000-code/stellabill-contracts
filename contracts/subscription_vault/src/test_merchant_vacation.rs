@@ -15,9 +15,9 @@
 //! - Vacation past subscription expiration
 //! - Merchant vacation migration on address rotation
 
-use crate::{Error, SubscriptionVault, SubscriptionVaultClient, SubscriptionStatus};
+use crate::{Error, SubscriptionStatus, SubscriptionVault, SubscriptionVaultClient};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
-use soroban_sdk::{token::StellarAssetClient as TokenAdminClient, Address, Env, String, Vec};
+use soroban_sdk::{token::StellarAssetClient as TokenAdminClient, Address, Env, Vec};
 
 fn setup() -> (
     Env,
@@ -37,13 +37,7 @@ fn setup() -> (
     let contract_id = env.register(SubscriptionVault, ());
     let client = SubscriptionVaultClient::new(&env, &contract_id);
 
-    client.init(
-        &token,
-        &7u32,
-        &admin,
-        &10i128,
-        &(7 * 24 * 60 * 60u64),
-    );
+    client.init(&token, &7u32, &admin, &10i128, &(7 * 24 * 60 * 60u64));
 
     (env, client, token_admin, token)
 }
@@ -484,8 +478,7 @@ fn test_vacation_past_subscription_expiration() {
 #[test]
 fn test_vacation_deposit_blocked() {
     let (env, client, token_admin, _) = setup();
-    let (sub_id, merchant, subscriber) =
-        setup_merchant_and_sub(&env, &client, &token_admin);
+    let (sub_id, merchant, subscriber) = setup_merchant_and_sub(&env, &client, &token_admin);
 
     let now = env.ledger().timestamp();
 
@@ -493,12 +486,7 @@ fn test_vacation_deposit_blocked() {
     client.set_merchant_vacation(&merchant, &now, &(now + 3600));
 
     // Deposit should be blocked
-    let res = client.try_deposit_funds(
-        &sub_id,
-        &subscriber,
-        &500i128,
-        &None,
-    );
+    let res = client.try_deposit_funds(&sub_id, &subscriber, &500i128, &None);
     assert_eq!(res, Err(Ok(Error::VacationActive)));
 }
 

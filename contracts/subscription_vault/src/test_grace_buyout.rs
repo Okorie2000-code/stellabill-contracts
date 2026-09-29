@@ -4,9 +4,7 @@
 //! in one atomic call, allowing a subscriber in GracePeriod to top-up
 //! enough funds (charge + premium) and immediately return to Active.
 
-use crate::{
-    DataKey, Error, SubscriptionStatus, SubscriptionVault, SubscriptionVaultClient,
-};
+use crate::{DataKey, Error, SubscriptionStatus, SubscriptionVault, SubscriptionVaultClient};
 use soroban_sdk::{
     testutils::{Address as _, Ledger as _},
     token, Address, Env,
@@ -47,10 +45,7 @@ fn setup() -> (
 }
 
 /// Create a subscription and return (id, subscriber, merchant).
-fn create_sub(
-    env: &Env,
-    client: &SubscriptionVaultClient,
-) -> (u32, Address, Address) {
+fn create_sub(env: &Env, client: &SubscriptionVaultClient) -> (u32, Address, Address) {
     let subscriber = Address::generate(env);
     let merchant = Address::generate(env);
     let id = client.create_subscription(
@@ -87,11 +82,7 @@ fn set_balance(env: &Env, client: &SubscriptionVaultClient, id: u32, balance: i1
 
 /// Force a subscription into GracePeriod by attempting a charge with
 /// insufficient balance.
-fn force_into_grace_period(
-    env: &Env,
-    client: &SubscriptionVaultClient,
-    id: u32,
-) {
+fn force_into_grace_period(env: &Env, client: &SubscriptionVaultClient, id: u32) {
     // Set balance to 0 so the charge fails and enters GracePeriod.
     set_balance(env, client, id, 0);
     env.ledger().with_mut(|l| l.timestamp = T0 + INTERVAL);
@@ -132,7 +123,10 @@ fn test_grace_buyout_happy_path() {
 
     let sub = client.get_subscription(&id);
     assert_eq!(sub.status, SubscriptionStatus::Active);
-    assert_eq!(sub.prepaid_balance, balance_before + deposit - charge_amount);
+    assert_eq!(
+        sub.prepaid_balance,
+        balance_before + deposit - charge_amount
+    );
 }
 
 // ── Reject: not in GracePeriod ──────────────────────────────────────────────

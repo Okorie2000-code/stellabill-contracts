@@ -364,10 +364,7 @@ pub fn delete_metadata(
     // Return NotFound if the key is not in the key list rather than silently
     // succeeding. This matches the documented API contract and allows callers
     // to distinguish "already deleted" from "successfully deleted".
-    let idx = keys
-        .iter()
-        .position(|k| k == key)
-        .ok_or(Error::NotFound)?;
+    let idx = keys.iter().position(|k| k == key).ok_or(Error::NotFound)?;
     let idx_u32 = idx.try_into().map_err(|_| Error::Overflow)?;
     keys.remove(idx_u32);
     env.storage()

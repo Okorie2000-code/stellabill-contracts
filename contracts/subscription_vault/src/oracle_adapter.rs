@@ -73,12 +73,11 @@ impl OracleAdapter for SpotAdapter {
         let oracle_addr = config.oracle.clone().ok_or(Error::OracleNotConfigured)?;
 
         // Call the oracle contract to fetch the latest price observation.
-        let price: OraclePrice = env
-            .invoke_contract(
-                &oracle_addr,
-                &soroban_sdk::Symbol::new(env, "latest_price"),
-                soroban_sdk::Vec::new(env),
-            );
+        let price: OraclePrice = env.invoke_contract(
+            &oracle_addr,
+            &soroban_sdk::Symbol::new(env, "latest_price"),
+            soroban_sdk::Vec::new(env),
+        );
 
         validate_price(env, &price, config.max_age_seconds)
     }
@@ -197,11 +196,7 @@ impl OracleAdapter for FixedRateAdapter {
 // ── Validation helpers ────────────────────────────────────────────────────────
 
 /// Validate a single [`OraclePrice`] observation against the staleness threshold.
-pub fn validate_price(
-    env: &Env,
-    price: &OraclePrice,
-    max_age_seconds: u64,
-) -> Result<u128, Error> {
+pub fn validate_price(env: &Env, price: &OraclePrice, max_age_seconds: u64) -> Result<u128, Error> {
     if price.price <= 0 {
         return Err(Error::OraclePriceInvalid);
     }

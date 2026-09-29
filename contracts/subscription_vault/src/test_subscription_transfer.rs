@@ -1,18 +1,28 @@
 #![cfg(test)]
 
+use crate::types::Error;
 use crate::{SubscriptionVault, SubscriptionVaultClient};
-use crate::types::{Error, SubscriptionStatus};
 use soroban_sdk::{testutils::Address as _, testutils::Ledger, Address, Env};
 
-fn setup() -> (Env, SubscriptionVaultClient<'static>, Address, Address, Address, Address, Address) {
+fn setup() -> (
+    Env,
+    SubscriptionVaultClient<'static>,
+    Address,
+    Address,
+    Address,
+    Address,
+    Address,
+) {
     let env = Env::default();
     env.mock_all_auths();
 
     let contract_id = env.register(SubscriptionVault, ());
     let client = SubscriptionVaultClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
-    
-    let token = env.register_stellar_asset_contract_v2(admin.clone()).address();
+
+    let token = env
+        .register_stellar_asset_contract_v2(admin.clone())
+        .address();
 
     client.init(&token, &6, &admin, &100_000, &86400);
 
@@ -24,7 +34,15 @@ fn setup() -> (Env, SubscriptionVaultClient<'static>, Address, Address, Address,
     token_client.mint(&subscriber1, &1000_000_000);
     token_client.mint(&subscriber2, &1000_000_000);
 
-    (env, client, admin, token, merchant, subscriber1, subscriber2)
+    (
+        env,
+        client,
+        admin,
+        token,
+        merchant,
+        subscriber1,
+        subscriber2,
+    )
 }
 
 #[test]
@@ -81,7 +99,10 @@ fn test_merchant_veto_before_acceptance() {
 
     // Accept fails because intent is gone
     let res = client.try_accept_transfer(&sub_id, &sub2);
-    assert_eq!(res.unwrap_err().unwrap().to_code(), Error::TransferIntentNotFound.to_code());
+    assert_eq!(
+        res.unwrap_err().unwrap().to_code(),
+        Error::TransferIntentNotFound.to_code()
+    );
 }
 
 #[test]
@@ -108,7 +129,10 @@ fn test_merchant_veto_after_acceptance() {
 
     // Merchant tries to veto after acceptance
     let res = client.try_veto_transfer(&sub_id, &merchant);
-    assert_eq!(res.unwrap_err().unwrap().to_code(), Error::TransferIntentNotFound.to_code());
+    assert_eq!(
+        res.unwrap_err().unwrap().to_code(),
+        Error::TransferIntentNotFound.to_code()
+    );
 }
 
 #[test]
@@ -136,7 +160,10 @@ fn test_expired_intent() {
 
     // Accept fails due to expiry
     let res = client.try_accept_transfer(&sub_id, &sub2);
-    assert_eq!(res.unwrap_err().unwrap().to_code(), Error::TransferIntentExpired.to_code());
+    assert_eq!(
+        res.unwrap_err().unwrap().to_code(),
+        Error::TransferIntentExpired.to_code()
+    );
 }
 
 #[test]
@@ -158,5 +185,8 @@ fn test_transfer_to_self() {
 
     let expires_at = env.ledger().timestamp() + 3600;
     let res = client.try_initiate_transfer(&sub_id, &sub1, &sub1, &expires_at);
-    assert_eq!(res.unwrap_err().unwrap().to_code(), Error::InvalidTransferTarget.to_code());
+    assert_eq!(
+        res.unwrap_err().unwrap().to_code(),
+        Error::InvalidTransferTarget.to_code()
+    );
 }

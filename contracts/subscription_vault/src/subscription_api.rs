@@ -154,9 +154,7 @@
 //! status mutator and rejects invalid transitions with
 //! `Error::InvalidStatusTransition`, keeping `Cancelled` terminal.
 
-pub use crate::state_machine::{
-    can_transition, transition_to, validate_status_transition,
-};
+pub use crate::state_machine::{can_transition, transition_to, validate_status_transition};
 
 pub use crate::charge_core::{charge_one, charge_usage_one};
 pub use crate::coupon::{apply_coupon, create_coupon, get_coupon, revoke_coupon};
@@ -170,9 +168,9 @@ pub use crate::metadata::{
 };
 pub use crate::nonce::get_nonce;
 pub use crate::queries::{
-    estimate_topup_for_intervals, get_cap_info, get_next_charge_info, get_subscription,
-    get_subscriptions_by_token, get_token_subscription_count, list_subscriptions_by_subscriber,
-    get_plan_max_active_subs,
+    estimate_topup_for_intervals, get_cap_info, get_next_charge_info, get_plan_max_active_subs,
+    get_subscription, get_subscriptions_by_token, get_token_subscription_count,
+    list_subscriptions_by_subscriber,
 };
 pub use crate::subscription::{
     do_accept_transfer, do_bulk_cancel_subscriptions, do_bulk_deposit_funds,
@@ -183,12 +181,11 @@ pub use crate::subscription::{
     do_finalize_emergency_withdraw, do_grace_buyout, do_grant_delegated_payer,
     do_initiate_transfer, do_migrate_subscription_to_plan, do_partial_refund,
     do_pause_subscription, do_request_emergency_withdraw, do_resume_subscription,
-    do_revoke_delegated_payer, do_schedule_cancel, do_set_auto_renew,
-    do_set_global_cap_default, do_set_merchant_cap_default, do_set_merchant_max_subs,
-    do_set_plan_max_active_subs, do_set_subscriber_active_cap, do_set_subscriber_credit_limit,
-    do_set_sub_exp_ledger, do_unschedule_cancel, do_update_plan_template,
-    do_update_subscription_cap, do_veto_transfer, do_withdraw_subscriber_funds,
-    get_global_cap_default, get_merchant_cap_default, get_plan_template,
-    get_split_payees, get_subscriber_active_cap, get_subscriber_active_count,
+    do_revoke_delegated_payer, do_schedule_cancel, do_set_auto_renew, do_set_global_cap_default,
+    do_set_merchant_cap_default, do_set_merchant_max_subs, do_set_plan_max_active_subs,
+    do_set_sub_exp_ledger, do_set_subscriber_active_cap, do_set_subscriber_credit_limit,
+    do_unschedule_cancel, do_update_plan_template, do_update_subscription_cap, do_veto_transfer,
+    do_withdraw_subscriber_funds, get_global_cap_default, get_merchant_cap_default,
+    get_plan_template, get_split_payees, get_subscriber_active_cap, get_subscriber_active_count,
     get_subscriber_credit_limit, get_subscriber_exposure, write_split_payees,
 };

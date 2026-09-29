@@ -22,8 +22,8 @@
 //! - Cross-domain collision is impossible: domain is part of the storage key.
 //! - Out-of-order submission is rejected: only the exact stored value is accepted.
 
-use soroban_sdk::{Address, Env};
 use crate::types::{DataKey, Error, NonceConsumedEvent};
+use soroban_sdk::{Address, Env};
 
 /// Domain constant for batch charge operations.
 /// Prevents replay of batch_charge nonces into rotate_admin and vice versa.
@@ -129,7 +129,11 @@ pub fn check_and_advance(
     expected: u64,
 ) -> Result<(), Error> {
     let key = DataKey::AdminNonce(signer.clone(), domain);
-    let stored = env.storage().persistent().get::<DataKey, u64>(&key).unwrap_or(0);
+    let stored = env
+        .storage()
+        .persistent()
+        .get::<DataKey, u64>(&key)
+        .unwrap_or(0);
 
     let next = compute_next_nonce(stored, expected)?;
 
@@ -138,7 +142,11 @@ pub fn check_and_advance(
 
     // Emit audit event with current timestamp.
     env.events().publish(
-        (soroban_sdk::Symbol::new(env, "nonce_consumed"), signer.clone(), domain),
+        (
+            soroban_sdk::Symbol::new(env, "nonce_consumed"),
+            signer.clone(),
+            domain,
+        ),
         NonceConsumedEvent {
             signer: signer.clone(),
             domain,
@@ -189,7 +197,10 @@ mod tests {
         ];
         for i in 0..domains.len() {
             for j in (i + 1)..domains.len() {
-                assert_ne!(domains[i], domains[j], "domain collision at indices {i} and {j}");
+                assert_ne!(
+                    domains[i], domains[j],
+                    "domain collision at indices {i} and {j}"
+                );
             }
         }
     }

@@ -70,7 +70,11 @@ pub fn append_statement(
     extend_statement_ttl(env, &stmt_key);
 
     let idx_key = DataKey::BillingStatementsBySubscription(subscription_id);
-    let mut ids: Vec<u32> = env.storage().persistent().get(&idx_key).unwrap_or(Vec::new(env));
+    let mut ids: Vec<u32> = env
+        .storage()
+        .persistent()
+        .get(&idx_key)
+        .unwrap_or(Vec::new(env));
     ids.push_back(next_seq);
     env.storage().persistent().set(&idx_key, &ids);
     // Extend TTL on the secondary index so queries remain available.
@@ -86,9 +90,10 @@ pub fn append_statement(
 }
 
 pub fn set_retention_config(env: &Env, keep_recent: u32) {
-    env.storage()
-        .instance()
-        .set(&DataKey::BillingRetentionConfig, &BillingRetentionConfig { keep_recent });
+    env.storage().instance().set(
+        &DataKey::BillingRetentionConfig,
+        &BillingRetentionConfig { keep_recent },
+    );
 }
 
 pub fn get_retention_config(env: &Env) -> BillingRetentionConfig {
@@ -108,7 +113,11 @@ pub fn get_compacted_aggregate(env: &Env, subscription_id: u32) -> BillingStatem
         .unwrap_or(BillingStatementAggregate {
             pruned_count: 0,
             total_amount: 0,
-            totals: AccruedTotals { interval: 0, usage: 0, one_off: 0 },
+            totals: AccruedTotals {
+                interval: 0,
+                usage: 0,
+                one_off: 0,
+            },
             oldest_period_start: None,
             newest_period_end: None,
         })
@@ -127,7 +136,11 @@ pub fn compact_subscription_statements(
     let keep_recent = keep_recent_override.unwrap_or_else(|| get_retention_config(env).keep_recent);
 
     let idx_key = DataKey::BillingStatementsBySubscription(subscription_id);
-    let ids: Vec<u32> = env.storage().persistent().get(&idx_key).unwrap_or(Vec::new(env));
+    let ids: Vec<u32> = env
+        .storage()
+        .persistent()
+        .get(&idx_key)
+        .unwrap_or(Vec::new(env));
     let total = ids.len();
 
     if total <= keep_recent {
@@ -152,21 +165,35 @@ pub fn compact_subscription_statements(
         let seq = ids.get(i).unwrap();
         let stmt_key = DataKey::BillingStatement(subscription_id, seq);
         if i < prune_count {
-            if let Some(stmt) = env.storage().persistent().get::<_, BillingStatement>(&stmt_key) {
-                pruned_amount_total = pruned_amount_total.checked_add(stmt.amount).ok_or(Error::Overflow)?;
+            if let Some(stmt) = env
+                .storage()
+                .persistent()
+                .get::<_, BillingStatement>(&stmt_key)
+            {
+                pruned_amount_total = pruned_amount_total
+                    .checked_add(stmt.amount)
+                    .ok_or(Error::Overflow)?;
                 match stmt.kind {
                     BillingChargeKind::Interval => {
-                        pruned_interval = pruned_interval.checked_add(stmt.amount).ok_or(Error::Overflow)?;
+                        pruned_interval = pruned_interval
+                            .checked_add(stmt.amount)
+                            .ok_or(Error::Overflow)?;
                     }
                     BillingChargeKind::Usage => {
-                        pruned_usage = pruned_usage.checked_add(stmt.amount).ok_or(Error::Overflow)?;
+                        pruned_usage = pruned_usage
+                            .checked_add(stmt.amount)
+                            .ok_or(Error::Overflow)?;
                     }
                     BillingChargeKind::OneOff => {
-                        pruned_one_off = pruned_one_off.checked_add(stmt.amount).ok_or(Error::Overflow)?;
+                        pruned_one_off = pruned_one_off
+                            .checked_add(stmt.amount)
+                            .ok_or(Error::Overflow)?;
                     }
                 }
-                batch_oldest = Some(batch_oldest.map_or(stmt.period_start, |o| o.min(stmt.period_start)));
-                batch_newest = Some(batch_newest.map_or(stmt.period_end, |n| n.max(stmt.period_end)));
+                batch_oldest =
+                    Some(batch_oldest.map_or(stmt.period_start, |o| o.min(stmt.period_start)));
+                batch_newest =
+                    Some(batch_newest.map_or(stmt.period_end, |n| n.max(stmt.period_end)));
             }
             env.storage().persistent().remove(&stmt_key);
         } else {
@@ -177,11 +204,29 @@ pub fn compact_subscription_statements(
     env.storage().persistent().set(&idx_key, &kept_ids);
 
     let mut agg = get_compacted_aggregate(env, subscription_id);
-    agg.pruned_count = agg.pruned_count.checked_add(prune_count).ok_or(Error::Overflow)?;
-    agg.total_amount = agg.total_amount.checked_add(pruned_amount_total).ok_or(Error::Overflow)?;
-    agg.totals.interval = agg.totals.interval.checked_add(pruned_interval).ok_or(Error::Overflow)?;
-    agg.totals.usage = agg.totals.usage.checked_add(pruned_usage).ok_or(Error::Overflow)?;
-    agg.totals.one_off = agg.totals.one_off.checked_add(pruned_one_off).ok_or(Error::Overflow)?;
+    agg.pruned_count = agg
+        .pruned_count
+        .checked_add(prune_count)
+        .ok_or(Error::Overflow)?;
+    agg.total_amount = agg
+        .total_amount
+        .checked_add(pruned_amount_total)
+        .ok_or(Error::Overflow)?;
+    agg.totals.interval = agg
+        .totals
+        .interval
+        .checked_add(pruned_interval)
+        .ok_or(Error::Overflow)?;
+    agg.totals.usage = agg
+        .totals
+        .usage
+        .checked_add(pruned_usage)
+        .ok_or(Error::Overflow)?;
+    agg.totals.one_off = agg
+        .totals
+        .one_off
+        .checked_add(pruned_one_off)
+        .ok_or(Error::Overflow)?;
     agg.oldest_period_start = match (agg.oldest_period_start, batch_oldest) {
         (Some(a), Some(b)) => Some(a.min(b)),
         (None, x) => x,
@@ -224,7 +269,11 @@ pub fn get_statements_by_subscription_offset(
     }
 
     let idx_key = DataKey::BillingStatementsBySubscription(subscription_id);
-    let ids: Vec<u32> = env.storage().persistent().get(&idx_key).unwrap_or(Vec::new(env));
+    let ids: Vec<u32> = env
+        .storage()
+        .persistent()
+        .get(&idx_key)
+        .unwrap_or(Vec::new(env));
     // Extend TTL on the secondary index entry whenever it is read.
     if !ids.is_empty() {
         extend_statement_ttl(env, &idx_key);
@@ -261,7 +310,11 @@ pub fn get_statements_by_subscription_offset(
     }
 
     let next_cursor = if end < total { Some(end) } else { None };
-    Ok(BillingStatementsPage { statements, next_cursor, total })
+    Ok(BillingStatementsPage {
+        statements,
+        next_cursor,
+        total,
+    })
 }
 
 /// Cursor-based pagination over the same ordering as

@@ -59,7 +59,12 @@ fn create_and_fund_sub(
         &None::<soroban_sdk::Symbol>,
     );
 
-    client.deposit_funds(&id, &subscriber, &DEPOSIT_AMOUNT, &None::<soroban_sdk::BytesN<32>>);
+    client.deposit_funds(
+        &id,
+        &subscriber,
+        &DEPOSIT_AMOUNT,
+        &None::<soroban_sdk::BytesN<32>>,
+    );
     (id, subscriber, merchant)
 }
 
@@ -94,7 +99,10 @@ fn test_merchant_full_balance_drain() {
 
     // Verify initial merchant earnings and balance
     let initial_balance = client.get_merchant_balance(&merchant);
-    assert_eq!(initial_balance, AMOUNT, "Merchant balance should equal charge amount");
+    assert_eq!(
+        initial_balance, AMOUNT,
+        "Merchant balance should equal charge amount"
+    );
 
     let initial_vault_tokens = token_client.balance(&client.address);
     let initial_merchant_tokens = token_client.balance(&merchant);
@@ -115,7 +123,10 @@ fn test_merchant_full_balance_drain() {
 
     // 4. Assert final storage state: balance is exactly 0
     let final_balance = client.get_merchant_balance(&merchant);
-    assert_eq!(final_balance, 0, "Merchant balance must be zero after full drain");
+    assert_eq!(
+        final_balance, 0,
+        "Merchant balance must be zero after full drain"
+    );
 
     // Verify token movements
     assert_eq!(
@@ -131,7 +142,10 @@ fn test_merchant_full_balance_drain() {
 
     // 5. Subsequent withdrawal when balance is zero must fail
     let err = client.try_withdraw_merchant_funds(&merchant, &1i128);
-    assert!(err.is_err(), "Withdrawal from zero balance must be rejected");
+    assert!(
+        err.is_err(),
+        "Withdrawal from zero balance must be rejected"
+    );
 }
 
 #[test]
@@ -185,7 +199,12 @@ fn test_merchant_dust_balance_drain() {
         &None::<soroban_sdk::Symbol>,
     );
 
-    client.deposit_funds(&id, &subscriber, &dust_amount, &None::<soroban_sdk::BytesN<32>>);
+    client.deposit_funds(
+        &id,
+        &subscriber,
+        &dust_amount,
+        &None::<soroban_sdk::BytesN<32>>,
+    );
 
     let now = 1_000_000 + INTERVAL + 1;
     env.ledger().set_timestamp(now);

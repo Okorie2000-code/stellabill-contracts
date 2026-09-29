@@ -94,7 +94,14 @@ fn whitelist_disabled_allows_unapproved_merchant() {
     let merchant = Address::generate(&_env);
     let payout = Address::generate(&_env);
     // Whitelist is off by default — any merchant can register
-    client.initialize_merchant_config(&merchant, &payout, &0, &1, &None, &soroban_sdk::String::from_str(&_env, ""));
+    client.initialize_merchant_config(
+        &merchant,
+        &payout,
+        &0,
+        &1,
+        &None,
+        &soroban_sdk::String::from_str(&_env, ""),
+    );
     assert!(client.get_merchant_config(&merchant).is_some());
 }
 
@@ -122,7 +129,14 @@ fn whitelist_enabled_allows_approved_merchant() {
     let payout = Address::generate(&_env);
     client.set_whitelist_mode(&admin, &true);
     client.approve_merchant(&admin, &merchant);
-    client.initialize_merchant_config(&merchant, &payout, &0, &1, &None, &soroban_sdk::String::from_str(&_env, ""));
+    client.initialize_merchant_config(
+        &merchant,
+        &payout,
+        &0,
+        &1,
+        &None,
+        &soroban_sdk::String::from_str(&_env, ""),
+    );
     assert!(client.get_merchant_config(&merchant).is_some());
 }
 
@@ -140,7 +154,14 @@ fn toggle_whitelist_preserves_existing_approvals() {
     assert!(client.is_merchant_approved(&merchant));
     // Merchant can still register
     let payout = Address::generate(&_env);
-    client.initialize_merchant_config(&merchant, &payout, &0, &1, &None, &soroban_sdk::String::from_str(&_env, ""));
+    client.initialize_merchant_config(
+        &merchant,
+        &payout,
+        &0,
+        &1,
+        &None,
+        &soroban_sdk::String::from_str(&_env, ""),
+    );
     assert!(client.get_merchant_config(&merchant).is_some());
 }
 
@@ -173,7 +194,14 @@ fn whitelist_off_then_on_does_not_break_existing_merchants() {
     let payout = Address::generate(&_env);
 
     // Register merchant while whitelist is off
-    client.initialize_merchant_config(&merchant, &payout, &0, &1, &None, &soroban_sdk::String::from_str(&_env, ""));
+    client.initialize_merchant_config(
+        &merchant,
+        &payout,
+        &0,
+        &1,
+        &None,
+        &soroban_sdk::String::from_str(&_env, ""),
+    );
     assert!(client.get_merchant_config(&merchant).is_some());
 
     // Turn whitelist on — existing merchant should still be in storage

@@ -88,8 +88,8 @@ fn create_subscription(
         &false,
         &None::<i128>,
         &None::<u64>,
-    &None::<u32>,
-    &None::<soroban_sdk::Symbol>,
+        &None::<u32>,
+        &None::<soroban_sdk::Symbol>,
     );
     let _ = token; // touch unused param to silence the lint without complaining
     (id, subscriber, merchant)
@@ -222,8 +222,8 @@ fn subscriber_signed_set_succeeds() {
         &false,
         &None::<i128>,
         &None::<u64>,
-    &None::<u32>,
-    &None::<soroban_sdk::Symbol>,
+        &None::<u32>,
+        &None::<soroban_sdk::Symbol>,
     );
 
     let payload = payload_for(
@@ -267,8 +267,8 @@ fn merchant_signed_set_succeeds() {
         &false,
         &None::<i128>,
         &None::<u64>,
-    &None::<u32>,
-    &None::<soroban_sdk::Symbol>,
+        &None::<u32>,
+        &None::<soroban_sdk::Symbol>,
     );
 
     let payload = payload_for(
@@ -304,9 +304,9 @@ fn sequential_nonces_advance() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let signer = pubkey_to_address(&env, &bytes32(&env, &sub_key.pub_bytes));
 
@@ -350,9 +350,9 @@ fn replayed_nonce_is_rejected() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
 
     let payload = payload_for(&env, sub_id, "k", "v", 0u64, one_hour_from_now(&env));
@@ -382,9 +382,9 @@ fn skipped_nonce_is_rejected() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
 
     // Submit nonce 0 first to advance the counter to 1.
@@ -414,9 +414,9 @@ fn expires_at_equal_to_now_rejected() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let now = env.ledger().timestamp();
     let payload = payload_for(&env, sub_id, "k", "v", 0u64, now);
@@ -442,9 +442,9 @@ fn expires_at_in_past_rejected() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let now = env.ledger().timestamp();
     let payload = payload_for(&env, sub_id, "k", "v", 0u64, now.saturating_sub(1));
@@ -473,9 +473,9 @@ fn expires_at_in_future_succeeds() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let payload = payload_for(
         &env,
@@ -509,9 +509,9 @@ fn forged_signature_panics() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let payload = payload_for(&env, sub_id, "k", "v", 0u64, one_hour_from_now(&env));
     let (_good_sig, _) = sign_payload(&env, &sub_key, &payload);
@@ -546,9 +546,9 @@ fn wrong_key_signature_panics() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     // Attacker builds a fully valid signature on the right message bytes
     // using THEIR key, then submits claiming to be the subscriber.
@@ -584,9 +584,9 @@ fn chain_id_mismatch_panics() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let payload = payload_for(&env, sub_id, "k", "v", 0u64, one_hour_from_now(&env));
     // Sign for galaxy-A but the contract's chain_id reads as whatever
@@ -661,9 +661,9 @@ fn key_too_long_rejected() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
 
     // 33-byte key — one over the 32-byte limit. Use ascii letters so
@@ -700,9 +700,9 @@ fn value_too_long_rejected() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let long_value = String::from_str(&env, &"a".repeat(257));
     let payload = SignedMetadataPayload {
@@ -735,9 +735,9 @@ fn empty_key_rejected() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let payload = SignedMetadataPayload {
         subscription_id: sub_id,
@@ -768,9 +768,9 @@ fn empty_value_rejected() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let payload = SignedMetadataPayload {
         subscription_id: sub_id,
@@ -801,9 +801,9 @@ fn key_cap_reached() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
 
     // Fill the 10-key cap on signed path.
@@ -857,9 +857,9 @@ fn subscriber_and_merchant_nonces_independent() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
 
     // Subscriber does one update.
@@ -905,9 +905,9 @@ fn nonce_overflow_is_guarded() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let signer = Address::generate(&env);
     env.as_contract(&client.address, || {
@@ -968,9 +968,9 @@ fn success_emits_signed_event() {
             &false,
             &None::<i128>,
             &None::<u64>,
-                &None::<u32>,
-                &None::<soroban_sdk::Symbol>,
-)
+            &None::<u32>,
+            &None::<soroban_sdk::Symbol>,
+        )
     };
     let payload = payload_for(&env, sub_id, "k", "v", 0u64, one_hour_from_now(&env));
     let (signature, _) = sign_payload(&env, &sub_key, &payload);
@@ -1056,12 +1056,7 @@ fn key_at_max_length_accepted() {
     let (sub_id, subscriber, _merchant) = create_subscription(&env, &client, &client.address);
 
     let key = String::from_str(&env, &"a".repeat(crate::MAX_METADATA_KEY_LENGTH as usize));
-    client.set_metadata(
-        &sub_id,
-        &subscriber,
-        &key,
-        &String::from_str(&env, "v"),
-    );
+    client.set_metadata(&sub_id, &subscriber, &key, &String::from_str(&env, "v"));
 
     assert_eq!(
         client.get_metadata(&sub_id, &key),
@@ -1076,12 +1071,10 @@ fn value_at_max_length_accepted() {
     let (sub_id, subscriber, _merchant) = create_subscription(&env, &client, &client.address);
 
     let val = String::from_str(&env, &"v".repeat(crate::MAX_METADATA_VALUE_LENGTH as usize));
-    client.set_metadata(
-        &sub_id,
-        &subscriber,
-        &String::from_str(&env, "k"),
-        &val,
-    );
+    client.set_metadata(&sub_id, &subscriber, &String::from_str(&env, "k"), &val);
 
-    assert_eq!(client.get_metadata(&sub_id, &String::from_str(&env, "k")), val);
+    assert_eq!(
+        client.get_metadata(&sub_id, &String::from_str(&env, "k")),
+        val
+    );
 }

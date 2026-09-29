@@ -8,7 +8,13 @@ const INTERVAL: u64 = 30 * 24 * 3600;
 const AMOUNT: i128 = 10_000_000;
 const PREPAID: i128 = 1_000_000_000;
 
-fn setup() -> (Env, Address, SubscriptionVaultClient<'static>, TokenAdminClient<'static>, Address) {
+fn setup() -> (
+    Env,
+    Address,
+    SubscriptionVaultClient<'static>,
+    TokenAdminClient<'static>,
+    Address,
+) {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -20,18 +26,27 @@ fn setup() -> (Env, Address, SubscriptionVaultClient<'static>, TokenAdminClient<
 
     let contract_id = env.register(SubscriptionVault, ());
     let client = SubscriptionVaultClient::new(&env, &contract_id);
-    client.init(&token, &7u32, &admin, &1_000_000i128, &(7 * 24 * 60 * 60u64));
+    client.init(
+        &token,
+        &7u32,
+        &admin,
+        &1_000_000i128,
+        &(7 * 24 * 60 * 60u64),
+    );
 
     (env, admin, client, token_admin, token)
 }
 
-fn create_sub(
-    client: &SubscriptionVaultClient,
-    subscriber: &Address,
-    merchant: &Address,
-) -> u32 {
+fn create_sub(client: &SubscriptionVaultClient, subscriber: &Address, merchant: &Address) -> u32 {
     client.create_subscription(
-        subscriber, merchant, &AMOUNT, &INTERVAL, &false, &None, &None, &None::<u32>,
+        subscriber,
+        merchant,
+        &AMOUNT,
+        &INTERVAL,
+        &false,
+        &None,
+        &None,
+        &None::<u32>,
         &None::<soroban_sdk::Symbol>,
     )
 }
@@ -62,11 +77,8 @@ fn default_cap_blocks_the_eleventh_subscription() {
         &None,
         &None::<u32>,
         &None::<soroban_sdk::Symbol>,
-);
-    assert_eq!(
-        result,
-        Err(Ok(Error::MaxConcurrentSubscriptionsReached))
     );
+    assert_eq!(result, Err(Ok(Error::MaxConcurrentSubscriptionsReached)));
     // The rejected attempt must not have incremented the counter.
     assert_eq!(client.get_subscriber_active_count(&subscriber), 10);
 }
@@ -86,9 +98,16 @@ fn cancelling_frees_a_slot() {
     assert_eq!(client.get_subscriber_active_count(&subscriber), 2);
 
     let blocked = client.try_create_subscription(
-        &subscriber, &merchant, &AMOUNT, &INTERVAL, &false, &None, &None,
-        &None::<u32>, &None::<soroban_sdk::Symbol>,
-);
+        &subscriber,
+        &merchant,
+        &AMOUNT,
+        &INTERVAL,
+        &false,
+        &None,
+        &None,
+        &None::<u32>,
+        &None::<soroban_sdk::Symbol>,
+    );
     assert_eq!(blocked, Err(Ok(Error::MaxConcurrentSubscriptionsReached)));
 
     client.cancel_subscription(&id1, &subscriber);

@@ -9,14 +9,14 @@ use crate::types::{
     AdminProposalClaimedEvent, AdminProposalCreatedEvent, AdminRotatedEvent, BatchChargeResult,
     DataKey, Error, FeeTokenConfiguredEvent, PendingTreasuryChange, RecoveryEvent, RecoveryReason,
     TreasuryChangeExecutedEvent, TreasuryChangeQueuedEvent, TreasurySplitConfig,
-    TreasurySplitConfiguredEvent, TreasurySplitEntry, TOPIC_RECOVERY, SUB_TTL_EXTEND_TO,
-    SUB_TTL_THRESHOLD,
+    TreasurySplitConfiguredEvent, TreasurySplitEntry, SUB_TTL_EXTEND_TO, SUB_TTL_THRESHOLD,
+    TOPIC_RECOVERY,
 };
 use crate::{
     charge_core::{charge_one, charge_usage_one},
     ChargeExecutionResult,
 };
-use soroban_sdk::{token, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{token, Address, Bytes, Env, String, Symbol, Vec};
 
 pub fn get_schema_version(env: &Env) -> u32 {
     if let Some(v) = env
@@ -287,10 +287,8 @@ pub fn get_grace_period(env: &Env) -> Result<u64, Error> {
 pub fn do_set_subscriber_create_cap(env: &Env, admin: Address, cap: u32) -> Result<(), Error> {
     require_admin_auth(env, &admin)?;
     write_config(env, &DataKey::SubscriberCreateCap, &cap);
-    env.events().publish(
-        (Symbol::new(env, "subscriber_create_cap_updated"),),
-        cap,
-    );
+    env.events()
+        .publish((Symbol::new(env, "subscriber_create_cap_updated"),), cap);
     Ok(())
 }
 
@@ -364,7 +362,11 @@ pub fn list_accepted_tokens(env: &Env) -> Vec<AcceptedToken> {
     let mut out = Vec::new(env);
     for token in tokens.iter() {
         if let Some(decimals) = storage.get::<_, u32>(&accepted_token_decimals_key(&token)) {
-            out.push_back(AcceptedToken { token, decimals, added_at: 0 });
+            out.push_back(AcceptedToken {
+                token,
+                decimals,
+                added_at: 0,
+            });
         }
     }
     out
@@ -372,7 +374,7 @@ pub fn list_accepted_tokens(env: &Env) -> Vec<AcceptedToken> {
 
 /// Cached admin configuration values to avoid repeated instance-storage
 /// lookups inside batch loops.
-pub(crate) struct CachedAdminConfig {
+pub struct CachedAdminConfig {
     pub fee_bps: u32,
     pub treasury: Option<Address>,
     pub grace_duration: u64,
@@ -580,10 +582,8 @@ pub fn do_recover_stranded_funds(
         schema_version: crate::types::EVENT_SCHEMA_VERSION,
     };
 
-    env.events().publish(
-        (TOPIC_RECOVERY, admin.clone()),
-        recovery_event,
-    );
+    env.events()
+        .publish((TOPIC_RECOVERY, admin.clone()), recovery_event);
 
     // Actual token transfer logic
     token_client.transfer(&env.current_contract_address(), &recipient, &amount);
@@ -608,20 +608,31 @@ pub fn queue_treasury_change(
     if fee_bps > 10_000 {
         return Err(Error::InvalidInput);
     }
-    if env.storage().persistent().has(&DataKey::PendingTreasuryChange) {
+    if env
+        .storage()
+        .persistent()
+        .has(&DataKey::PendingTreasuryChange)
+    {
         return Err(Error::InvalidInput);
     }
 
-    let effective_at = env.ledger().timestamp().saturating_add(TREASURY_CHANGE_DELAY_SECS);
+    let effective_at = env
+        .ledger()
+        .timestamp()
+        .saturating_add(TREASURY_CHANGE_DELAY_SECS);
     let pending = PendingTreasuryChange {
         new_treasury: treasury.clone(),
         new_fee_bps: fee_bps,
         effective_at,
     };
-    env.storage().persistent().set(&DataKey::PendingTreasuryChange, &pending);
     env.storage()
         .persistent()
-        .extend_ttl(&DataKey::PendingTreasuryChange, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
+        .set(&DataKey::PendingTreasuryChange, &pending);
+    env.storage().persistent().extend_ttl(
+        &DataKey::PendingTreasuryChange,
+        SUB_TTL_THRESHOLD,
+        SUB_TTL_EXTEND_TO,
+    );
 
     enforce_config_cooldown(env, "ProtocolFee")?;
     write_config(env, &DataKey::FeeBps, &fee_bps);
@@ -655,7 +666,9 @@ pub fn execute_treasury_change(env: &Env, admin: Address) -> Result<(), Error> {
 
     write_config(env, &DataKey::FeeBps, &pending.new_fee_bps);
     write_config(env, &DataKey::Treasury, &pending.new_treasury);
-    env.storage().persistent().remove(&DataKey::PendingTreasuryChange);
+    env.storage()
+        .persistent()
+        .remove(&DataKey::PendingTreasuryChange);
 
     env.events().publish(
         (Symbol::new(env, "treasury_change_executed"),),
@@ -673,10 +686,16 @@ pub fn execute_treasury_change(env: &Env, admin: Address) -> Result<(), Error> {
 
 pub fn cancel_treasury_change(env: &Env, admin: Address) -> Result<(), Error> {
     require_admin_auth(env, &admin)?;
-    if !env.storage().persistent().has(&DataKey::PendingTreasuryChange) {
+    if !env
+        .storage()
+        .persistent()
+        .has(&DataKey::PendingTreasuryChange)
+    {
         return Err(Error::NotFound);
     }
-    env.storage().persistent().remove(&DataKey::PendingTreasuryChange);
+    env.storage()
+        .persistent()
+        .remove(&DataKey::PendingTreasuryChange);
     Ok(())
 }
 
@@ -725,7 +744,6 @@ pub fn set_fee_token(
         (Symbol::new(env, "fee_token_configured"),),
         FeeTokenConfiguredEvent {
             admin,
-            fee_token: fee_token.clone(),
             old_token: None,
             new_token: fee_token,
             timestamp: env.ledger().timestamp(),
@@ -765,9 +783,7 @@ pub fn validate_treasury_split(entries: &Vec<TreasurySplitEntry>) -> Result<(), 
         if entry.bps == 0 {
             return Err(Error::InvalidFeeBips);
         }
-        total_bps = total_bps
-            .checked_add(entry.bps)
-            .ok_or(Error::Overflow)?;
+        total_bps = total_bps.checked_add(entry.bps).ok_or(Error::Overflow)?;
 
         // Check for duplicate beneficiaries
         for j in (i + 1)..entries.len() {
@@ -852,7 +868,11 @@ fn proposal_key(env: &Env) -> Symbol {
     Symbol::new(env, "admin_proposal")
 }
 
-pub fn do_propose_admin(env: &Env, current_admin: Address, new_admin: Address) -> Result<(), Error> {
+pub fn do_propose_admin(
+    env: &Env,
+    current_admin: Address,
+    new_admin: Address,
+) -> Result<(), Error> {
     current_admin.require_auth();
     let stored = require_admin(env)?;
     if current_admin != stored {
@@ -971,11 +991,9 @@ pub fn rewrite_subscriptions_for_ledger_expiration(env: &Env) -> u32 {
             .get::<_, crate::types::Subscription>(&key)
         {
             env.storage().persistent().set(&key, &sub);
-            env.storage().persistent().extend_ttl(
-                &key,
-                SUB_TTL_THRESHOLD,
-                SUB_TTL_EXTEND_TO,
-            );
+            env.storage()
+                .persistent()
+                .extend_ttl(&key, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
             touched = touched.saturating_add(1);
         }
     }
@@ -1000,11 +1018,9 @@ pub fn rewrite_subscriptions_for_sub_account_label(env: &Env) -> u32 {
             // Round-trip: deserialise populates `sub_account_label: None`,
             // then write back so XDR encoding includes the new field.
             env.storage().persistent().set(&key, &sub);
-            env.storage().persistent().extend_ttl(
-                &key,
-                SUB_TTL_THRESHOLD,
-                SUB_TTL_EXTEND_TO,
-            );
+            env.storage()
+                .persistent()
+                .extend_ttl(&key, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
             touched = touched.saturating_add(1);
         }
     }
@@ -1027,11 +1043,9 @@ pub fn rewrite_subscriptions_for_arrears(env: &Env) -> u32 {
             .get::<_, crate::types::Subscription>(&key)
         {
             env.storage().persistent().set(&key, &sub);
-            env.storage().persistent().extend_ttl(
-                &key,
-                SUB_TTL_THRESHOLD,
-                SUB_TTL_EXTEND_TO,
-            );
+            env.storage()
+                .persistent()
+                .extend_ttl(&key, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
             touched = touched.saturating_add(1);
         }
     }
@@ -1046,7 +1060,12 @@ pub fn do_migrate_config_to_persistent_internal(env: &Env) -> Result<(), Error> 
     if instance.has(&DataKey::Token) {
         let val: Address = instance.get(&DataKey::Token).unwrap();
         persistent.set(&DataKey::Token, &val);
-        crate::subscription::maybe_extend_ttl(env, &DataKey::Token, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
+        crate::subscription::maybe_extend_ttl(
+            env,
+            &DataKey::Token,
+            SUB_TTL_THRESHOLD,
+            SUB_TTL_EXTEND_TO,
+        );
         instance.remove(&DataKey::Token);
     }
 
@@ -1054,7 +1073,12 @@ pub fn do_migrate_config_to_persistent_internal(env: &Env) -> Result<(), Error> 
     if instance.has(&DataKey::Admin) {
         let val: Address = instance.get(&DataKey::Admin).unwrap();
         persistent.set(&DataKey::Admin, &val);
-        crate::subscription::maybe_extend_ttl(env, &DataKey::Admin, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
+        crate::subscription::maybe_extend_ttl(
+            env,
+            &DataKey::Admin,
+            SUB_TTL_THRESHOLD,
+            SUB_TTL_EXTEND_TO,
+        );
         instance.remove(&DataKey::Admin);
     }
 
@@ -1062,7 +1086,12 @@ pub fn do_migrate_config_to_persistent_internal(env: &Env) -> Result<(), Error> 
     if instance.has(&DataKey::MinTopup) {
         let val: i128 = instance.get(&DataKey::MinTopup).unwrap();
         persistent.set(&DataKey::MinTopup, &val);
-        crate::subscription::maybe_extend_ttl(env, &DataKey::MinTopup, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
+        crate::subscription::maybe_extend_ttl(
+            env,
+            &DataKey::MinTopup,
+            SUB_TTL_THRESHOLD,
+            SUB_TTL_EXTEND_TO,
+        );
         instance.remove(&DataKey::MinTopup);
     }
 
@@ -1070,7 +1099,12 @@ pub fn do_migrate_config_to_persistent_internal(env: &Env) -> Result<(), Error> 
     if instance.has(&DataKey::NextId) {
         let val: u32 = instance.get(&DataKey::NextId).unwrap_or(0);
         persistent.set(&DataKey::NextId, &val);
-        crate::subscription::maybe_extend_ttl(env, &DataKey::NextId, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
+        crate::subscription::maybe_extend_ttl(
+            env,
+            &DataKey::NextId,
+            SUB_TTL_THRESHOLD,
+            SUB_TTL_EXTEND_TO,
+        );
         instance.remove(&DataKey::NextId);
     }
 
@@ -1091,7 +1125,12 @@ pub fn do_migrate_config_to_persistent_internal(env: &Env) -> Result<(), Error> 
     if instance.has(&DataKey::Treasury) {
         let val: Address = instance.get(&DataKey::Treasury).unwrap();
         persistent.set(&DataKey::Treasury, &val);
-        crate::subscription::maybe_extend_ttl(env, &DataKey::Treasury, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
+        crate::subscription::maybe_extend_ttl(
+            env,
+            &DataKey::Treasury,
+            SUB_TTL_THRESHOLD,
+            SUB_TTL_EXTEND_TO,
+        );
         instance.remove(&DataKey::Treasury);
     }
 
@@ -1099,7 +1138,12 @@ pub fn do_migrate_config_to_persistent_internal(env: &Env) -> Result<(), Error> 
     if instance.has(&DataKey::FeeBps) {
         let val: u32 = instance.get(&DataKey::FeeBps).unwrap_or(0);
         persistent.set(&DataKey::FeeBps, &val);
-        crate::subscription::maybe_extend_ttl(env, &DataKey::FeeBps, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
+        crate::subscription::maybe_extend_ttl(
+            env,
+            &DataKey::FeeBps,
+            SUB_TTL_THRESHOLD,
+            SUB_TTL_EXTEND_TO,
+        );
         instance.remove(&DataKey::FeeBps);
     }
 
@@ -1107,7 +1151,12 @@ pub fn do_migrate_config_to_persistent_internal(env: &Env) -> Result<(), Error> 
     if instance.has(&DataKey::Operator) {
         let val: Address = instance.get(&DataKey::Operator).unwrap();
         persistent.set(&DataKey::Operator, &val);
-        crate::subscription::maybe_extend_ttl(env, &DataKey::Operator, SUB_TTL_THRESHOLD, SUB_TTL_EXTEND_TO);
+        crate::subscription::maybe_extend_ttl(
+            env,
+            &DataKey::Operator,
+            SUB_TTL_THRESHOLD,
+            SUB_TTL_EXTEND_TO,
+        );
         instance.remove(&DataKey::Operator);
     }
 
@@ -1247,4 +1296,293 @@ pub fn do_migrate(
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod grace_period_tests {
+    use super::{do_init, do_set_grace_period, get_grace_period};
+    use crate::types::{DataKey, Error};
+    use soroban_sdk::{
+        testutils::{Address as _, Ledger as _},
+        Address, Env, Vec,
+    };
+
+    /// Register + init a fresh contract with the given grace period and
+    /// return `(env, contract_id, admin)`.
+    fn setup(grace_period: u64) -> (Env, Address, Address) {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(crate::SubscriptionVault, ());
+        let admin = Address::generate(&env);
+        let token = Address::generate(&env);
+        env.as_contract(&contract_id, || {
+            do_init(&env, token, 6, admin.clone(), 1_000_000i128, grace_period)
+        })
+        .unwrap();
+        (env, contract_id, admin)
+    }
+
+    /// Read the raw instance-storage slot directly, bypassing `get_grace_period`,
+    /// so tests can assert state (non-)mutation independently of the function
+    /// under test.
+    fn raw_grace(env: &Env) -> Option<u64> {
+        env.storage()
+            .instance()
+            .get::<DataKey, u64>(&DataKey::GracePeriod)
+    }
+
+    // ── Valid / happy paths ─────────────────────────────────────────────────
+
+    /// `get_grace_period` returns exactly the value `do_init` stored.
+    #[test]
+    fn returns_value_written_at_init() {
+        let (env, contract_id, _) = setup(604_800); // 7 days
+        let got = env.as_contract(&contract_id, || get_grace_period(&env));
+        assert_eq!(got, Ok(604_800u64));
+    }
+
+    /// Zero is a meaningful configuration (grace disabled): it must round-trip
+    /// rather than being collapsed into `Err` or the `unwrap_or(0)` default.
+    #[test]
+    fn zero_grace_round_trips() {
+        let (env, contract_id, _) = setup(0);
+        let got = env.as_contract(&contract_id, || get_grace_period(&env));
+        assert_eq!(got, Ok(0u64));
+    }
+
+    /// `u64::MAX` must not saturate or wrap: the getter is a pure read.
+    #[test]
+    fn u64_max_round_trips() {
+        let (env, contract_id, _) = setup(u64::MAX);
+        let got = env.as_contract(&contract_id, || get_grace_period(&env));
+        assert_eq!(got, Ok(u64::MAX));
+    }
+
+    /// After `do_set_grace_period` the getter reflects the new value.
+    #[test]
+    fn reflects_admin_update() {
+        let (env, contract_id, admin) = setup(604_800);
+        env.as_contract(&contract_id, || {
+            do_set_grace_period(&env, admin, 86_400).unwrap();
+        });
+        let got = env.as_contract(&contract_id, || get_grace_period(&env));
+        assert_eq!(got, Ok(86_400u64));
+    }
+
+    /// Setter + getter inside a cooldown-guarded sequence: only the final value
+    /// is observable, and the getter never errors between writes.
+    #[test]
+    fn repeated_updates_are_stable() {
+        let (env, contract_id, admin) = setup(1);
+        for expected in [2u64, 3, 604_800, 0] {
+            env.ledger().with_mut(|l| l.timestamp += 21_600 + 1); // clear cooldown
+            env.as_contract(&contract_id, || {
+                do_set_grace_period(&env, admin.clone(), expected).unwrap();
+            });
+            let got = env.as_contract(&contract_id, || get_grace_period(&env));
+            assert_eq!(got, Ok(expected));
+        }
+    }
+
+    // ── Adversarial / storage-layer paths ───────────────────────────────────
+
+    /// Storage-slot tampering: a `u64::MAX` slot must be returned verbatim.
+    #[test]
+    fn adversarial_storage_slot_is_returned_verbatim() {
+        let (env, contract_id, _) = setup(604_800);
+        env.as_contract(&contract_id, || {
+            env.storage()
+                .instance()
+                .set(&DataKey::GracePeriod, &u64::MAX);
+        });
+        let got = env.as_contract(&contract_id, || get_grace_period(&env));
+        assert_eq!(got, Ok(u64::MAX));
+    }
+
+    /// With no slot at all the getter must yield `Ok(0)` — the
+    /// `unwrap_or(0)` default — never `Err` or a host panic.
+    #[test]
+    fn missing_slot_defaults_to_zero() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(crate::SubscriptionVault, ());
+        env.as_contract(&contract_id, || {
+            // Contract not even initialized: the GracePeriod slot is absent.
+            assert_eq!(raw_grace(&env), None);
+            assert_eq!(get_grace_period(&env), Ok(0u64));
+        });
+    }
+
+    /// Adversarial auth: a non-admin must not be able to change the value the
+    /// getter observes, and a rejected mutation must leave the raw slot untouched.
+    #[test]
+    fn unauthorized_setter_cannot_change_state() {
+        let (env, contract_id, _admin) = setup(604_800);
+        let attacker = Address::generate(&env);
+        env.mock_all_auths(); // attacker "signs", identity check must still reject
+
+        let res = env.as_contract(&contract_id, || do_set_grace_period(&env, attacker, 0));
+        assert_eq!(res, Err(Error::Forbidden));
+
+        // State unchanged: both via the getter and via raw storage.
+        assert_eq!(
+            env.as_contract(&contract_id, || get_grace_period(&env)),
+            Ok(604_800u64)
+        );
+        assert_eq!(
+            env.as_contract(&contract_id, || raw_grace(&env)),
+            Some(604_800u64)
+        );
+    }
+
+    /// The old admin must lose setter privileges after `rotate_admin`, and the
+    /// getter must keep reporting the value set by the *new* admin.
+    #[test]
+    fn rotated_out_admin_cannot_mutate() {
+        let (env, contract_id, admin) = setup(604_800);
+        let new_admin = Address::generate(&env);
+        let client = crate::SubscriptionVaultClient::new(&env, &contract_id);
+        client.rotate_admin(&admin, &new_admin, &0u64);
+
+        // Old admin is now Forbidden.
+        let res = env.as_contract(&contract_id, || do_set_grace_period(&env, admin.clone(), 1));
+        assert_eq!(res, Err(Error::Forbidden));
+
+        // New admin can change it; getter observes the new value.
+        env.as_contract(&contract_id, || {
+            do_set_grace_period(&env, new_admin, 42).unwrap();
+        });
+        assert_eq!(
+            env.as_contract(&contract_id, || get_grace_period(&env)),
+            Ok(42u64)
+        );
+    }
+
+    /// Operator role escalation: the least-privilege operator must NOT be able
+    /// to mutate the grace period even though `require_admin_or_operator_auth`
+    /// exists for bulk tooling.
+    #[test]
+    fn operator_role_cannot_mutate() {
+        let (env, contract_id, admin) = setup(604_800);
+        let operator = Address::generate(&env);
+        let client = crate::SubscriptionVaultClient::new(&env, &contract_id);
+        client.set_operator(&admin, &operator);
+
+        let res = env.as_contract(&contract_id, || do_set_grace_period(&env, operator, 1));
+        assert_eq!(res, Err(Error::Forbidden));
+
+        assert_eq!(
+            env.as_contract(&contract_id, || get_grace_period(&env)),
+            Ok(604_800u64)
+        );
+    }
+
+    /// The cooldown guard must reject rapid re-configuration and the getter must
+    /// keep returning the previous (untouched) value after the rejection.
+    #[test]
+    fn cooldown_rejection_leaves_state_unchanged() {
+        let (env, contract_id, admin) = setup(604_800);
+        // Advance past t=0 so the first write records a non-zero timestamp
+        // (a zero prev_ts would bypass the cooldown guard by design).
+        env.ledger().with_mut(|l| l.timestamp += 21_600 + 1);
+        env.as_contract(&contract_id, || {
+            do_set_grace_period(&env, admin.clone(), 86_400).unwrap();
+        });
+
+        // Immediate second mutation within CONFIG_COOLDOWN_SECS is rejected.
+        let res = env.as_contract(&contract_id, || do_set_grace_period(&env, admin.clone(), 1));
+        assert_eq!(res, Err(Error::CooldownActive));
+
+        // Getter still observes the first write; raw slot confirms no tamper.
+        assert_eq!(
+            env.as_contract(&contract_id, || get_grace_period(&env)),
+            Ok(86_400u64)
+        );
+        assert_eq!(
+            env.as_contract(&contract_id, || raw_grace(&env)),
+            Some(86_400u64)
+        );
+
+        // After the cooldown elapses the mutation succeeds.
+        env.ledger().with_mut(|l| l.timestamp += 21_600 + 1);
+        env.as_contract(&contract_id, || {
+            do_set_grace_period(&env, admin.clone(), 42).unwrap();
+        });
+        assert_eq!(
+            env.as_contract(&contract_id, || get_grace_period(&env)),
+            Ok(42u64)
+        );
+    }
+
+    /// Re-entrancy via an unauthorized re-entry of init: after a failed
+    /// `do_init` (already initialized) the grace value must be untouched.
+    #[test]
+    fn failed_reinit_does_not_touch_grace() {
+        let (env, contract_id, admin) = setup(604_800);
+        let attacker_token = Address::generate(&env);
+        let res = env.as_contract(&contract_id, || {
+            do_init(
+                &env,
+                attacker_token,
+                6,
+                admin,
+                1_000_000i128,
+                1, // attacker-chosen grace period
+            )
+        });
+        assert_eq!(res, Err(Error::AlreadyInitialized));
+        assert_eq!(
+            env.as_contract(&contract_id, || get_grace_period(&env)),
+            Ok(604_800u64)
+        );
+    }
+
+    /// Batch-context sanity: the getter must be a pure read — calling it
+    /// repeatedly, interleaved with unrelated storage traffic, must not change
+    /// the stored value (no lazy-write side effects).
+    #[test]
+    fn getter_is_pure_read() {
+        let (env, contract_id, _) = setup(123_456);
+        env.as_contract(&contract_id, || {
+            for _ in 0..8 {
+                let _ = get_grace_period(&env);
+            }
+            // Unrelated traffic in between.
+            let mut tokens: Vec<Address> = Vec::new(&env);
+            tokens.push_back(Address::generate(&env));
+            env.storage()
+                .instance()
+                .set(&DataKey::AcceptedTokens, &tokens);
+            assert_eq!(get_grace_period(&env), Ok(123_456u64));
+            assert_eq!(raw_grace(&env), Some(123_456u64));
+        });
+    }
+
+    /// External-client visibility: `init` called through the contract client
+    /// (the real invocation path) must be visible to `get_grace_period`, and
+    /// repeated reads must be deterministic.
+    #[test]
+    fn external_client_init_matches_getter() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(crate::SubscriptionVault, ());
+        let admin = Address::generate(&env);
+        let token = Address::generate(&env);
+        let client = crate::SubscriptionVaultClient::new(&env, &contract_id);
+        // External call path: the emitted `initialized` event lands in the
+        // ledger event stream observable by indexers.
+        client.init(&token, &6, &admin, &1_000_000i128, &3600);
+        assert_eq!(
+            env.as_contract(&contract_id, || get_grace_period(&env)),
+            Ok(3600u64)
+        );
+
+        // Observability: the value written by the external `init` call must be
+        // exactly what the getter reports (storage <-> API consistency) and
+        // must remain stable across repeated reads.
+        for _ in 0..3 {
+            let got = env.as_contract(&contract_id, || get_grace_period(&env));
+            assert_eq!(got, Ok(3600u64));
+        }
+    }
 }

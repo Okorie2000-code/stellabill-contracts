@@ -1,4 +1,4 @@
-use crate::{Error, SubscriptionVault, SubscriptionVaultClient, SubscriptionStatus, SplitPayees};
+use crate::{Error, SubscriptionVault, SubscriptionVaultClient};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
 use soroban_sdk::{token::StellarAssetClient as TokenAdminClient, Address, Env, Vec};
 
@@ -25,7 +25,7 @@ fn setup() -> (
         &token,
         &7u32,
         &admin,
-        &10i128, // min topup: 10 base units
+        &10i128,                // min topup: 10 base units
         &(7 * 24 * 60 * 60u64), // grace period: 7 days
     );
 
@@ -56,7 +56,7 @@ fn test_create_subscription_with_split_validation() {
     let mut bad_entries1 = Vec::new(&env);
     bad_entries1.push_back((payee1.clone(), 5_000u32));
     bad_entries1.push_back((payee2.clone(), 4_999u32));
-    
+
     let res = client.try_create_subscription_with_split(
         &subscriber,
         &merchant,
@@ -73,7 +73,7 @@ fn test_create_subscription_with_split_validation() {
     let mut bad_entries2 = Vec::new(&env);
     bad_entries2.push_back((payee1.clone(), 10_000u32));
     bad_entries2.push_back((payee2.clone(), 0u32));
-    
+
     let res2 = client.try_create_subscription_with_split(
         &subscriber,
         &merchant,
@@ -162,9 +162,12 @@ fn test_split_charge_distribution_and_dust() {
     // Payee 1: 100 * 3333 / 10000 = 33
     // Payee 2: 100 * 3334 / 10000 = 33
     // Payee 0 (first payee): gets remainder = 100 - (33 + 33) = 34.
-    let earnings0 = client.get_merchant_token_earnings(&payee0, &client.get_subscription(&sub_id).token);
-    let earnings1 = client.get_merchant_token_earnings(&payee1, &client.get_subscription(&sub_id).token);
-    let earnings2 = client.get_merchant_token_earnings(&payee2, &client.get_subscription(&sub_id).token);
+    let earnings0 =
+        client.get_merchant_token_earnings(&payee0, &client.get_subscription(&sub_id).token);
+    let earnings1 =
+        client.get_merchant_token_earnings(&payee1, &client.get_subscription(&sub_id).token);
+    let earnings2 =
+        client.get_merchant_token_earnings(&payee2, &client.get_subscription(&sub_id).token);
 
     assert_eq!(earnings0.accruals.interval, 34);
     assert_eq!(earnings1.accruals.interval, 33);
@@ -227,7 +230,11 @@ fn test_split_payees_paused_or_blocklisted() {
 
     // 1. Blocklist one payee
     let admin = client.get_admin();
-    client.add_to_blocklist(&admin, &payee1, &Some(String::from_str(&env, "Test blocklist")));
+    client.add_to_blocklist(
+        &admin,
+        &payee1,
+        &Some(String::from_str(&env, "Test blocklist")),
+    );
 
     env.ledger().set_timestamp(env.ledger().timestamp() + 3601);
     let res = client.try_charge_subscription(&sub_id, &None);
@@ -246,6 +253,7 @@ fn test_split_payees_paused_or_blocklisted() {
         &None,
         &None,
         &Some(true), // Pause
+        &None,
     );
 
     let res_paused = client.try_charge_subscription(&sub_id, &None);
@@ -312,12 +320,15 @@ fn test_split_payees_removal_mid_billing() {
     client.charge_subscription(&sub_id, &None);
 
     // Primary merchant should get 100% of the funds
-    let merchant_earnings = client.get_merchant_token_earnings(&merchant, &client.get_subscription(&sub_id).token);
+    let merchant_earnings =
+        client.get_merchant_token_earnings(&merchant, &client.get_subscription(&sub_id).token);
     assert_eq!(merchant_earnings.accruals.interval, 100);
 
     // Split payees should get 0
-    let payee0_earnings = client.get_merchant_token_earnings(&payee0, &client.get_subscription(&sub_id).token);
-    let payee1_earnings = client.get_merchant_token_earnings(&payee1, &client.get_subscription(&sub_id).token);
+    let payee0_earnings =
+        client.get_merchant_token_earnings(&payee0, &client.get_subscription(&sub_id).token);
+    let payee1_earnings =
+        client.get_merchant_token_earnings(&payee1, &client.get_subscription(&sub_id).token);
     assert_eq!(payee0_earnings.accruals.interval, 0);
     assert_eq!(payee1_earnings.accruals.interval, 0);
 }

@@ -45,14 +45,8 @@ fn make_merchant(t: &TestEnv) -> Address {
 fn make_funded_subscription(t: &TestEnv, merchant: &Address, usage_enabled: bool) -> u32 {
     let subscriber = Address::generate(&t.env);
     if usage_enabled {
-        t.client.configure_usage_limits(
-            merchant,
-            &0u32,
-            &None::<u32>,
-            &0u64,
-            &0u64,
-            &None::<i128>,
-        );
+        t.client
+            .configure_usage_limits(merchant, &0u32, &None::<u32>, &0u64, &0u64, &None::<i128>);
     }
     let id = t.client.create_subscription(
         &subscriber,
@@ -98,7 +92,8 @@ fn protocol_fee_event_count(t: &TestEnv) -> usize {
 
 fn set_override_bps(t: &TestEnv, merchant: &Address, bps: u32) {
     t.env.as_contract(&t.client.address, || {
-        t.env.storage()
+        t.env
+            .storage()
             .instance()
             .set(&DataKey::MerchantFeeBps(merchant.clone()), &bps);
     });
@@ -309,12 +304,9 @@ fn one_off_wrong_merchant_is_rejected() {
     let id = make_funded_subscription(&t, &merchant, false);
     let impostor = Address::generate(&t.env);
 
-    let result = t.client.try_charge_one_off(
-        &id,
-        &impostor,
-        &CHARGE,
-        &None::<soroban_sdk::BytesN<32>>,
-    );
+    let result =
+        t.client
+            .try_charge_one_off(&id, &impostor, &CHARGE, &None::<soroban_sdk::BytesN<32>>);
     assert!(result.is_err());
     assert_eq!(
         t.client.get_merchant_balance_by_token(&merchant, &t.token),
@@ -332,9 +324,9 @@ fn one_off_zero_amount_is_rejected() {
     let merchant = make_merchant(&t);
     let id = make_funded_subscription(&t, &merchant, false);
 
-    let result = t
-        .client
-        .try_charge_one_off(&id, &merchant, &0i128, &None::<soroban_sdk::BytesN<32>>);
+    let result =
+        t.client
+            .try_charge_one_off(&id, &merchant, &0i128, &None::<soroban_sdk::BytesN<32>>);
     assert!(result.is_err());
     assert_eq!(
         t.client.get_merchant_balance_by_token(&treasury, &t.token),

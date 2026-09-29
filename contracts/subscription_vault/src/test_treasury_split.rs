@@ -18,9 +18,10 @@
 #![cfg(test)]
 
 use crate::test_utils::setup::TestEnv;
-use crate::types::{DataKey, TreasurySplitConfig, TreasurySplitEntry};
+use crate::types::{DataKey, TreasurySplitEntry};
 use soroban_sdk::{
-    testutils::Address as _, testutils::Events as _, testutils::Ledger as _, Address, String, Vec,
+    testutils::{Address as _, Events as _},
+    Address, String, Vec,
 };
 
 const FEE_BPS: u32 = 1_000; // 10%
@@ -43,14 +44,8 @@ fn make_merchant(t: &TestEnv) -> Address {
 
 fn make_funded_usage_subscription(t: &TestEnv, merchant: &Address) -> u32 {
     let subscriber = Address::generate(&t.env);
-    t.client.configure_usage_limits(
-        merchant,
-        &0u32,
-        &None::<u32>,
-        &0u64,
-        &0u64,
-        &None::<i128>,
-    );
+    t.client
+        .configure_usage_limits(merchant, &0u32, &None::<u32>, &0u64, &0u64, &None::<i128>);
     let id = t.client.create_subscription(
         &subscriber,
         merchant,
@@ -69,8 +64,6 @@ fn make_funded_usage_subscription(t: &TestEnv, merchant: &Address) -> u32 {
     });
     id
 }
-
-
 
 // ── Validation tests ─────────────────────────────────────────────────────────
 
@@ -117,7 +110,10 @@ fn set_treasury_split_emits_configured_event() {
 
     // Verify the event was emitted by checking the event count increased
     let events = t.env.events().all();
-    assert!(!events.is_empty(), "set_treasury_split should emit at least one event");
+    assert!(
+        !events.is_empty(),
+        "set_treasury_split should emit at least one event"
+    );
 }
 
 #[test]
@@ -255,7 +251,8 @@ fn single_beneficiary_split_routes_full_fee() {
         expected_net
     );
     assert_eq!(
-        t.client.get_merchant_balance_by_token(&split_addr, &t.token),
+        t.client
+            .get_merchant_balance_by_token(&split_addr, &t.token),
         expected_fee
     );
 }
@@ -306,7 +303,8 @@ fn three_way_split_distributes_fee_correctly() {
 
     // Foundation: 50% of 4_000_000 = 2_000_000
     assert_eq!(
-        t.client.get_merchant_balance_by_token(&foundation, &t.token),
+        t.client
+            .get_merchant_balance_by_token(&foundation, &t.token),
         expected_fee * 5_000 / 10_000
     );
     // Insurance: 30% of 4_000_000 = 1_200_000
